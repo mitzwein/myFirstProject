@@ -369,6 +369,46 @@ input,select,textarea{font-family:var(--font);font-size:.9rem}
 .file-indicator{font-size:.72rem;color:var(--text-dim);display:flex;align-items:center;gap:4px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .file-indicator .dot{width:6px;height:6px;border-radius:50%;background:var(--success);flex-shrink:0}
 
+/* ---- LANDSCAPE MATRIX ---- */
+.matrix-wrapper{overflow-x:auto;padding-bottom:8px}
+.matrix-table{width:100%;border-collapse:separate;border-spacing:0;min-width:600px}
+.matrix-table th{
+  position:sticky;top:0;z-index:3;
+  padding:10px 14px;font-size:.7rem;text-transform:uppercase;letter-spacing:.8px;
+  color:var(--text-dim);font-weight:600;background:var(--bg);
+  border-bottom:2px solid var(--border);text-align:center;
+}
+.matrix-table th:first-child{text-align:left;min-width:180px;z-index:4}
+.matrix-table td{
+  padding:8px 10px;border-bottom:1px solid var(--border);
+  text-align:center;vertical-align:middle;font-size:.8rem;
+}
+.matrix-table td:first-child{
+  text-align:left;font-weight:600;font-size:.82rem;
+  position:sticky;left:0;background:var(--bg);z-index:2;
+  border-right:1px solid var(--border);
+}
+.matrix-table tr:hover td{background:rgba(255,255,255,.02)}
+.matrix-table tr:hover td:first-child{background:rgba(255,255,255,.04)}
+.matrix-cell{display:flex;align-items:center;justify-content:center}
+.matrix-dot{
+  width:26px;height:26px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.65rem;font-weight:700;color:#fff;cursor:pointer;
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.matrix-dot:hover{transform:scale(1.25);box-shadow:0 0 12px rgba(99,102,241,.4)}
+.matrix-dot.active{background:var(--success)}
+.matrix-dot.planned{background:var(--accent)}
+.matrix-dot.sunset{background:var(--warn)}
+.matrix-dot.deprecated{background:var(--danger)}
+.matrix-empty{width:26px;height:26px;border-radius:6px;border:1px dashed rgba(255,255,255,.08)}
+.matrix-sys-sub{font-size:.68rem;color:var(--text-dim);font-weight:400;display:block;margin-top:1px}
+.matrix-toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.matrix-legend{display:flex;gap:14px;align-items:center;margin-left:auto;font-size:.72rem;color:var(--text-dim)}
+.matrix-legend-item{display:flex;align-items:center;gap:5px}
+.matrix-legend-dot{width:12px;height:12px;border-radius:4px}
+
 /* RESPONSIVE */
 @media(max-width:900px){
   .sidebar{transform:translateX(-100%)}
@@ -395,6 +435,10 @@ input,select,textarea{font-family:var(--font);font-size:.9rem}
     <a class="nav-item active" data-view="dashboard" href="#">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       Dashboard
+    </a>
+    <a class="nav-item" data-view="landscape" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
+      Landscape Matrix
     </a>
     <a class="nav-item" data-view="capabilities" href="#">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
@@ -469,6 +513,42 @@ input,select,textarea{font-family:var(--font);font-size:.9rem}
         <div class="chart-card">
           <h4>Top Business Capabilities (by system count)</h4>
           <div class="bar-chart" id="capChart"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== LANDSCAPE MATRIX VIEW ========== -->
+    <div class="view" id="view-landscape">
+      <div class="card">
+        <div class="matrix-toolbar">
+          <select class="filter-select" id="matrixFilterStatus" onchange="renderLandscape()">
+            <option value="">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="planned">Planned</option>
+            <option value="sunset">Sunset</option>
+            <option value="deprecated">Deprecated</option>
+          </select>
+          <select class="filter-select" id="matrixFilterType" onchange="renderLandscape()">
+            <option value="">All Types</option>
+          </select>
+          <select class="filter-select" id="matrixSort" onchange="renderLandscape()">
+            <option value="name">Sort by Name</option>
+            <option value="type">Sort by Type</option>
+            <option value="criticality">Sort by Criticality</option>
+            <option value="coverage">Sort by Coverage</option>
+          </select>
+          <div class="matrix-legend">
+            <div class="matrix-legend-item"><div class="matrix-legend-dot" style="background:var(--success)"></div>Active</div>
+            <div class="matrix-legend-item"><div class="matrix-legend-dot" style="background:var(--accent)"></div>Planned</div>
+            <div class="matrix-legend-item"><div class="matrix-legend-dot" style="background:var(--warn)"></div>Sunset</div>
+            <div class="matrix-legend-item"><div class="matrix-legend-dot" style="background:var(--danger)"></div>Deprecated</div>
+          </div>
+        </div>
+        <div class="matrix-wrapper">
+          <table class="matrix-table" id="matrixTable">
+            <thead id="matrixHead"></thead>
+            <tbody id="matrixBody"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -833,6 +913,7 @@ const views = document.querySelectorAll('.view');
 const viewTitle = document.getElementById('viewTitle');
 const titles = {
   dashboard: 'Executive Dashboard',
+  landscape: 'Landscape Matrix',
   capabilities: 'Business Capability Map',
   markets: 'Market Landscape',
   systems: 'System Catalog',
@@ -858,6 +939,7 @@ function renderCurrentView(v) {
   currentView = v || currentView;
   const renderers = {
     dashboard: renderDashboard,
+    landscape: renderLandscape,
     capabilities: renderCapabilities,
     markets: renderMarkets,
     systems: renderSystems,
@@ -977,6 +1059,65 @@ function renderDashboard() {
       <div class="bar-label">${c.name}</div>
       <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:linear-gradient(90deg,var(--accent3),var(--accent))">${c.count}</div></div>
     </div>`;
+  }).join('');
+}
+
+/* ==================================================================
+   LANDSCAPE MATRIX — Systems (rows) x Markets (columns)
+   ================================================================== */
+function renderLandscape() {
+  const filterStatus = document.getElementById('matrixFilterStatus').value;
+  const filterType = document.getElementById('matrixFilterType').value;
+  const sortBy = document.getElementById('matrixSort').value;
+  const markets = data.markets;
+
+  /* Populate type filter if needed */
+  const typeSelect = document.getElementById('matrixFilterType');
+  const typeVal = typeSelect.value;
+  const types = [...new Set(data.systems.map(s => s.type))].sort();
+  typeSelect.innerHTML = '<option value="">All Types</option>' +
+    types.map(t => `<option value="${t}">${t}</option>`).join('');
+  typeSelect.value = typeVal;
+
+  /* Filter systems */
+  let systems = data.systems.filter(s => {
+    if (filterStatus && s.status !== filterStatus) return false;
+    if (filterType && s.type !== filterType) return false;
+    return true;
+  });
+
+  /* Sort systems */
+  if (sortBy === 'name') systems.sort((a, b) => a.name.localeCompare(b.name));
+  else if (sortBy === 'type') systems.sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name));
+  else if (sortBy === 'criticality') systems.sort((a, b) => b.criticality - a.criticality || a.name.localeCompare(b.name));
+  else if (sortBy === 'coverage') systems.sort((a, b) => b.markets.length - a.markets.length || a.name.localeCompare(b.name));
+
+  /* Header row */
+  document.getElementById('matrixHead').innerHTML = `<tr>
+    <th>System</th>
+    ${markets.map(m => `<th>${m.flag}<br>${m.name}</th>`).join('')}
+    <th>Coverage</th>
+  </tr>`;
+
+  /* Body rows */
+  document.getElementById('matrixBody').innerHTML = systems.map(s => {
+    const coverage = markets.length > 0 ? Math.round((s.markets.filter(mid => markets.some(m => m.id === mid)).length / markets.length) * 100) : 0;
+    const coverageColor = coverage >= 75 ? 'var(--success)' : coverage >= 40 ? 'var(--warn)' : 'var(--text-dim)';
+    return `<tr>
+      <td>
+        <span style="cursor:pointer" onclick="showSystemDetail('${s.id}')">${s.name}</span>
+        <span class="matrix-sys-sub">${s.vendor} &middot; ${s.type}</span>
+      </td>
+      ${markets.map(m => {
+        const deployed = s.markets.includes(m.id);
+        if (deployed) {
+          const cls = s.status;
+          return `<td><div class="matrix-cell"><div class="matrix-dot ${cls}" title="${s.name} — ${m.name} (${s.status})" onclick="showSystemDetail('${s.id}')">&#10003;</div></div></td>`;
+        }
+        return `<td><div class="matrix-cell"><div class="matrix-empty"></div></div></td>`;
+      }).join('')}
+      <td><span style="color:${coverageColor};font-weight:700;font-size:.82rem">${coverage}%</span></td>
+    </tr>`;
   }).join('');
 }
 
@@ -1460,6 +1601,99 @@ function saveIntegration() {
 }
 
 /* ==================================================================
+   COUNTRY FLAG AUTO-LOOKUP (ISO 3166-1 → flag emoji)
+   ================================================================== */
+const COUNTRY_ISO = {
+  'afghanistan':'AF','albania':'AL','algeria':'DZ','andorra':'AD','angola':'AO',
+  'argentina':'AR','armenia':'AM','australia':'AU','austria':'AT','azerbaijan':'AZ',
+  'bahrain':'BH','bangladesh':'BD','belarus':'BY','belgium':'BE','bolivia':'BO',
+  'bosnia':'BA','brazil':'BR','brunei':'BN','bulgaria':'BG','cambodia':'KH',
+  'cameroon':'CM','canada':'CA','chile':'CL','china':'CN','colombia':'CO',
+  'costa rica':'CR','croatia':'HR','cuba':'CU','cyprus':'CY','czech republic':'CZ',
+  'czechia':'CZ','denmark':'DK','dominican republic':'DO','ecuador':'EC','egypt':'EG',
+  'el salvador':'SV','estonia':'EE','ethiopia':'ET','finland':'FI','france':'FR',
+  'georgia':'GE','germany':'DE','ghana':'GH','greece':'GR','guatemala':'GT',
+  'honduras':'HN','hong kong':'HK','hungary':'HU','iceland':'IS','india':'IN',
+  'indonesia':'ID','iran':'IR','iraq':'IQ','ireland':'IE','israel':'IL',
+  'italy':'IT','jamaica':'JM','japan':'JP','jordan':'JO','kazakhstan':'KZ',
+  'kenya':'KE','kuwait':'KW','latvia':'LV','lebanon':'LB','libya':'LY',
+  'liechtenstein':'LI','lithuania':'LT','luxembourg':'LU','malaysia':'MY','malta':'MT',
+  'mexico':'MX','moldova':'MD','monaco':'MC','mongolia':'MN','montenegro':'ME',
+  'morocco':'MA','mozambique':'MZ','myanmar':'MM','nepal':'NP','netherlands':'NL',
+  'new zealand':'NZ','nicaragua':'NI','nigeria':'NG','north korea':'KP','north macedonia':'MK',
+  'norway':'NO','oman':'OM','pakistan':'PK','panama':'PA','paraguay':'PY',
+  'peru':'PE','philippines':'PH','poland':'PL','portugal':'PT','qatar':'QA',
+  'romania':'RO','russia':'RU','saudi arabia':'SA','senegal':'SN','serbia':'RS',
+  'singapore':'SG','slovakia':'SK','slovenia':'SI','south africa':'ZA','south korea':'KR',
+  'spain':'ES','sri lanka':'LK','sweden':'SE','switzerland':'CH','taiwan':'TW',
+  'tanzania':'TZ','thailand':'TH','tunisia':'TN','turkey':'TR','turkiye':'TR',
+  'ukraine':'UA','united arab emirates':'AE','uae':'AE','united kingdom':'GB','uk':'GB',
+  'united states':'US','usa':'US','us':'US','uruguay':'UY','uzbekistan':'UZ',
+  'venezuela':'VE','vietnam':'VN','yemen':'YE','zambia':'ZM','zimbabwe':'ZW',
+};
+
+const REGION_MAP = {
+  'AF':'Asia Pacific','AL':'Europe','DZ':'Middle East & Africa','AD':'Europe','AO':'Middle East & Africa',
+  'AR':'Latin America','AM':'Europe','AU':'Asia Pacific','AT':'Europe','AZ':'Asia Pacific',
+  'BH':'Middle East & Africa','BD':'Asia Pacific','BY':'Europe','BE':'Europe','BO':'Latin America',
+  'BA':'Europe','BR':'Latin America','BN':'Asia Pacific','BG':'Europe','KH':'Asia Pacific',
+  'CM':'Middle East & Africa','CA':'North America','CL':'Latin America','CN':'Asia Pacific','CO':'Latin America',
+  'CR':'Latin America','HR':'Europe','CU':'Latin America','CY':'Europe','CZ':'Europe',
+  'DK':'Europe','DO':'Latin America','EC':'Latin America','EG':'Middle East & Africa','SV':'Latin America',
+  'EE':'Europe','ET':'Middle East & Africa','FI':'Europe','FR':'Europe',
+  'GE':'Europe','DE':'Europe','GH':'Middle East & Africa','GR':'Europe','GT':'Latin America',
+  'HN':'Latin America','HK':'Asia Pacific','HU':'Europe','IS':'Europe','IN':'Asia Pacific',
+  'ID':'Asia Pacific','IR':'Middle East & Africa','IQ':'Middle East & Africa','IE':'Europe','IL':'Middle East & Africa',
+  'IT':'Europe','JM':'Latin America','JP':'Asia Pacific','JO':'Middle East & Africa','KZ':'Asia Pacific',
+  'KE':'Middle East & Africa','KW':'Middle East & Africa','LV':'Europe','LB':'Middle East & Africa','LY':'Middle East & Africa',
+  'LI':'Europe','LT':'Europe','LU':'Europe','MY':'Asia Pacific','MT':'Europe',
+  'MX':'Latin America','MD':'Europe','MC':'Europe','MN':'Asia Pacific','ME':'Europe',
+  'MA':'Middle East & Africa','MZ':'Middle East & Africa','MM':'Asia Pacific','NP':'Asia Pacific','NL':'Europe',
+  'NZ':'Asia Pacific','NI':'Latin America','NG':'Middle East & Africa','KP':'Asia Pacific','MK':'Europe',
+  'NO':'Europe','OM':'Middle East & Africa','PK':'Asia Pacific','PA':'Latin America','PY':'Latin America',
+  'PE':'Latin America','PH':'Asia Pacific','PL':'Europe','PT':'Europe','QA':'Middle East & Africa',
+  'RO':'Europe','RU':'Europe','SA':'Middle East & Africa','SN':'Middle East & Africa','RS':'Europe',
+  'SG':'Asia Pacific','SK':'Europe','SI':'Europe','ZA':'Middle East & Africa','KR':'Asia Pacific',
+  'ES':'Europe','LK':'Asia Pacific','SE':'Europe','CH':'Europe','TW':'Asia Pacific',
+  'TZ':'Middle East & Africa','TH':'Asia Pacific','TN':'Middle East & Africa','TR':'Europe','UA':'Europe',
+  'AE':'Middle East & Africa','GB':'Europe','US':'North America','UY':'Latin America','UZ':'Asia Pacific',
+  'VE':'Latin America','VN':'Asia Pacific','YE':'Middle East & Africa','ZM':'Middle East & Africa','ZW':'Middle East & Africa',
+};
+
+function isoToFlag(code) {
+  return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+}
+
+function lookupCountryFlag(name) {
+  const key = name.trim().toLowerCase();
+  const iso = COUNTRY_ISO[key];
+  if (iso) return isoToFlag(iso);
+  /* partial match */
+  for (const [country, code] of Object.entries(COUNTRY_ISO)) {
+    if (country.startsWith(key) || key.startsWith(country)) return isoToFlag(code);
+  }
+  return '';
+}
+
+function lookupCountryRegion(name) {
+  const key = name.trim().toLowerCase();
+  const iso = COUNTRY_ISO[key];
+  if (iso && REGION_MAP[iso]) return REGION_MAP[iso];
+  for (const [country, code] of Object.entries(COUNTRY_ISO)) {
+    if ((country.startsWith(key) || key.startsWith(country)) && REGION_MAP[code]) return REGION_MAP[code];
+  }
+  return '';
+}
+
+/* Wire auto-lookup to market name input */
+document.getElementById('mName').addEventListener('input', function() {
+  const flag = lookupCountryFlag(this.value);
+  if (flag) document.getElementById('mFlag').value = flag;
+  const region = lookupCountryRegion(this.value);
+  if (region) document.getElementById('mRegion').value = region;
+});
+
+/* ==================================================================
    MARKET CRUD
    ================================================================== */
 function openMarketModal(marketId) {
@@ -1740,6 +1974,9 @@ function updateAddButton() {
   if (currentView === 'integrations') {
     btn.textContent = '+ Add Integration';
     btn.onclick = openIntModal;
+  } else if (currentView === 'landscape') {
+    btn.textContent = '+ Add System';
+    btn.onclick = () => openModal('system');
   } else if (currentView === 'markets') {
     btn.textContent = '+ Add Market';
     btn.onclick = () => openMarketModal();
