@@ -361,6 +361,14 @@ input,select,textarea{font-family:var(--font);font-size:.9rem}
 }
 .toast.show{transform:translateY(0);opacity:1}
 
+/* ---- INLINE ACTION BUTTONS ON CARDS ---- */
+.market-card-actions{display:flex;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.cap-item-actions{display:inline-flex;gap:4px;margin-left:6px;opacity:0;transition:opacity .15s}
+.cap-item:hover .cap-item-actions{opacity:1}
+.cap-domain-actions{display:flex;gap:6px;margin-left:auto}
+.file-indicator{font-size:.72rem;color:var(--text-dim);display:flex;align-items:center;gap:4px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-indicator .dot{width:6px;height:6px;border-radius:50%;background:var(--success);flex-shrink:0}
+
 /* RESPONSIVE */
 @media(max-width:900px){
   .sidebar{transform:translateX(-100%)}
@@ -426,6 +434,9 @@ input,select,textarea{font-family:var(--font);font-size:.9rem}
   <div class="topbar">
     <h1 id="viewTitle">Executive Dashboard</h1>
     <div class="topbar-actions">
+      <span class="file-indicator" id="fileIndicator" style="display:none"><span class="dot"></span><span id="fileName"></span></span>
+      <button class="btn" onclick="saveToFile()">Save to File</button>
+      <button class="btn" onclick="loadFromFile()">Load File</button>
       <button class="btn" onclick="exportData()">Export JSON</button>
       <label class="btn" style="margin:0">
         Import
@@ -659,6 +670,69 @@ input,select,textarea{font-family:var(--font);font-size:.9rem}
     <div class="form-actions">
       <button class="btn" onclick="closeIntModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveIntegration()">Save Integration</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MARKET MODAL ============ -->
+<div class="modal-overlay" id="marketModal">
+  <div class="modal">
+    <h2 id="marketModalTitle">Add Market</h2>
+    <input type="hidden" id="editMarketId">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Market Name</label>
+        <input id="mName" placeholder="e.g. Germany">
+      </div>
+      <div class="form-group">
+        <label>Region</label>
+        <select id="mRegion">
+          <option>Europe</option>
+          <option>North America</option>
+          <option>Latin America</option>
+          <option>Asia Pacific</option>
+          <option>Middle East & Africa</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Flag Emoji</label>
+      <input id="mFlag" placeholder="e.g. paste flag emoji here">
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeMarketModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMarket()">Save Market</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CAPABILITY MODAL ============ -->
+<div class="modal-overlay" id="capModal">
+  <div class="modal">
+    <h2 id="capModalTitle">Add Capability</h2>
+    <input type="hidden" id="editCapId">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Capability Name</label>
+        <input id="cName" placeholder="e.g. Financial Accounting">
+      </div>
+      <div class="form-group">
+        <label>Domain</label>
+        <input id="cDomain" placeholder="e.g. Finance" list="domainList">
+        <datalist id="domainList"></datalist>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Level</label>
+      <select id="cLevel">
+        <option value="1">Level 1 (Strategic)</option>
+        <option value="2">Level 2 (Operational)</option>
+        <option value="3">Level 3 (Supporting)</option>
+      </select>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeCapModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCap()">Save Capability</button>
     </div>
   </div>
 </div>
@@ -920,11 +994,22 @@ function renderCapabilities() {
     const caps = data.capabilities.filter(c => c.domain === domain);
     const color = domainColors[domain] || '#6366f1';
     return `<div class="cap-domain">
-      <div class="cap-domain-header"><div class="dot" style="background:${color}"></div>${domain}</div>
+      <div class="cap-domain-header">
+        <div class="dot" style="background:${color}"></div>${domain}
+        <div class="cap-domain-actions">
+          <button class="btn btn-sm" onclick="openCapModal('${domain}')">+ Add</button>
+        </div>
+      </div>
       <div class="cap-list">
         ${caps.map(cap => {
           const count = data.systems.filter(s => s.capabilities.includes(cap.id)).length;
-          return `<div class="cap-item" onclick="showCapDetail('${cap.id}')">${cap.name}${count ? `<span class="count">${count}</span>` : ''}</div>`;
+          return `<div class="cap-item" onclick="showCapDetail('${cap.id}')">
+            ${cap.name}${count ? `<span class="count">${count}</span>` : ''}
+            <span class="cap-item-actions">
+              <button class="btn btn-sm" onclick="event.stopPropagation();editCap('${cap.id}')" style="padding:2px 8px;font-size:.7rem">Edit</button>
+              <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteCap('${cap.id}')" style="padding:2px 8px;font-size:.7rem">Del</button>
+            </span>
+          </div>`;
         }).join('')}
       </div>
     </div>`;
@@ -978,6 +1063,10 @@ function renderMarkets() {
       <div class="market-systems">
         ${systems.map(s => `<span class="market-sys-tag">${s.name}</span>`).join('')}
       </div>
+      <div class="market-card-actions">
+        <button class="btn btn-sm" onclick="editMarket('${m.id}')">Edit</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteMarket('${m.id}')">Delete</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -1000,15 +1089,16 @@ function renderSystems() {
     return true;
   });
 
-  /* Market filter dropdown */
+  /* Market filter dropdown — rebuild to stay in sync */
   const mktSelect = document.getElementById('sysFilterMarket');
-  if (mktSelect.options.length <= 1) {
-    data.markets.forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m.id; opt.textContent = m.name;
-      mktSelect.appendChild(opt);
-    });
-  }
+  const mktVal = mktSelect.value;
+  mktSelect.innerHTML = '<option value="">All Markets</option>';
+  data.markets.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id; opt.textContent = m.name;
+    mktSelect.appendChild(opt);
+  });
+  mktSelect.value = mktVal;
 
   const showTech = stakeholder !== 'management';
   const showCost = stakeholder !== 'management';
@@ -1369,11 +1459,238 @@ function saveIntegration() {
   showToast('Integration added');
 }
 
+/* ==================================================================
+   MARKET CRUD
+   ================================================================== */
+function openMarketModal(marketId) {
+  const modal = document.getElementById('marketModal');
+  if (marketId) {
+    const m = data.markets.find(x => x.id === marketId);
+    if (!m) return;
+    document.getElementById('marketModalTitle').textContent = 'Edit Market';
+    document.getElementById('editMarketId').value = m.id;
+    document.getElementById('mName').value = m.name;
+    document.getElementById('mRegion').value = m.region;
+    document.getElementById('mFlag').value = m.flag;
+  } else {
+    document.getElementById('marketModalTitle').textContent = 'Add Market';
+    document.getElementById('editMarketId').value = '';
+    document.getElementById('mName').value = '';
+    document.getElementById('mRegion').selectedIndex = 0;
+    document.getElementById('mFlag').value = '';
+  }
+  modal.classList.add('open');
+}
+
+function closeMarketModal() { document.getElementById('marketModal').classList.remove('open'); }
+
+function saveMarket() {
+  const id = document.getElementById('editMarketId').value || uid();
+  const market = {
+    id,
+    name: document.getElementById('mName').value || 'Unnamed Market',
+    region: document.getElementById('mRegion').value,
+    flag: document.getElementById('mFlag').value || '',
+  };
+  const idx = data.markets.findIndex(m => m.id === id);
+  if (idx >= 0) data.markets[idx] = market;
+  else data.markets.push(market);
+  persist();
+  closeMarketModal();
+  rebuildMarketFilter();
+  renderCurrentView();
+  showToast(idx >= 0 ? 'Market updated' : 'Market added');
+}
+
+function editMarket(id) { openMarketModal(id); }
+
+function deleteMarket(id) {
+  const m = data.markets.find(x => x.id === id);
+  const systemCount = data.systems.filter(s => s.markets.includes(id)).length;
+  const msg = systemCount
+    ? `Delete "${m.name}"? ${systemCount} system(s) reference this market. The market will be removed from those systems.`
+    : `Delete "${m.name}"?`;
+  if (!confirm(msg)) return;
+  data.markets = data.markets.filter(x => x.id !== id);
+  data.systems.forEach(s => { s.markets = s.markets.filter(mid => mid !== id); });
+  persist();
+  rebuildMarketFilter();
+  renderCurrentView();
+  showToast('Market deleted');
+}
+
+function rebuildMarketFilter() {
+  const mktSelect = document.getElementById('sysFilterMarket');
+  const val = mktSelect.value;
+  mktSelect.innerHTML = '<option value="">All Markets</option>';
+  data.markets.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id; opt.textContent = m.name;
+    mktSelect.appendChild(opt);
+  });
+  mktSelect.value = val;
+}
+
+/* ==================================================================
+   CAPABILITY CRUD
+   ================================================================== */
+function openCapModal(prefillDomain) {
+  const modal = document.getElementById('capModal');
+  document.getElementById('capModalTitle').textContent = 'Add Capability';
+  document.getElementById('editCapId').value = '';
+  document.getElementById('cName').value = '';
+  document.getElementById('cDomain').value = prefillDomain || '';
+  document.getElementById('cLevel').value = '1';
+  /* Populate domain datalist */
+  const domains = [...new Set(data.capabilities.map(c => c.domain))];
+  document.getElementById('domainList').innerHTML = domains.map(d => `<option value="${d}">`).join('');
+  modal.classList.add('open');
+}
+
+function closeCapModal() { document.getElementById('capModal').classList.remove('open'); }
+
+function editCap(capId) {
+  const cap = data.capabilities.find(c => c.id === capId);
+  if (!cap) return;
+  const modal = document.getElementById('capModal');
+  document.getElementById('capModalTitle').textContent = 'Edit Capability';
+  document.getElementById('editCapId').value = cap.id;
+  document.getElementById('cName').value = cap.name;
+  document.getElementById('cDomain').value = cap.domain;
+  document.getElementById('cLevel').value = cap.level;
+  const domains = [...new Set(data.capabilities.map(c => c.domain))];
+  document.getElementById('domainList').innerHTML = domains.map(d => `<option value="${d}">`).join('');
+  modal.classList.add('open');
+}
+
+function saveCap() {
+  const id = document.getElementById('editCapId').value || uid();
+  const cap = {
+    id,
+    name: document.getElementById('cName').value || 'Unnamed Capability',
+    domain: document.getElementById('cDomain').value || 'Uncategorized',
+    level: parseInt(document.getElementById('cLevel').value),
+  };
+  const idx = data.capabilities.findIndex(c => c.id === id);
+  if (idx >= 0) data.capabilities[idx] = cap;
+  else data.capabilities.push(cap);
+  persist();
+  closeCapModal();
+  renderCurrentView();
+  showToast(idx >= 0 ? 'Capability updated' : 'Capability added');
+}
+
+function deleteCap(capId) {
+  const cap = data.capabilities.find(c => c.id === capId);
+  const systemCount = data.systems.filter(s => s.capabilities.includes(capId)).length;
+  const msg = systemCount
+    ? `Delete "${cap.name}"? ${systemCount} system(s) reference this capability. It will be removed from those systems.`
+    : `Delete "${cap.name}"?`;
+  if (!confirm(msg)) return;
+  data.capabilities = data.capabilities.filter(c => c.id !== capId);
+  data.systems.forEach(s => { s.capabilities = s.capabilities.filter(cid => cid !== capId); });
+  persist();
+  renderCurrentView();
+  showToast('Capability deleted');
+}
+
 /* Detail panel */
 function closeDetail() { document.getElementById('detailPanel').classList.remove('open'); }
 
 /* ==================================================================
-   EXPORT / IMPORT
+   FILE PERSISTENCE (File System Access API + fallback)
+   ================================================================== */
+let fileHandle = null;
+
+async function saveToFile() {
+  const json = JSON.stringify(data, null, 2);
+
+  /* Try File System Access API (Chrome/Edge) */
+  if ('showSaveFilePicker' in window) {
+    try {
+      if (!fileHandle) {
+        fileHandle = await window.showSaveFilePicker({
+          suggestedName: 'it-landscape-data.json',
+          types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }],
+        });
+      }
+      const writable = await fileHandle.createWritable();
+      await writable.write(json);
+      await writable.close();
+      updateFileIndicator(fileHandle.name);
+      showToast('Saved to ' + fileHandle.name);
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      /* fall through to download */
+    }
+  }
+
+  /* Fallback: download */
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'it-landscape-data.json'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('Data downloaded as JSON file');
+}
+
+async function loadFromFile() {
+  /* Try File System Access API */
+  if ('showOpenFilePicker' in window) {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }],
+      });
+      fileHandle = handle;
+      const file = await handle.getFile();
+      const text = await file.text();
+      const imported = JSON.parse(text);
+      if (imported.systems && imported.markets && imported.capabilities) {
+        data = imported;
+        persist();
+        rebuildMarketFilter();
+        renderCurrentView();
+        updateFileIndicator(handle.name);
+        showToast('Loaded from ' + handle.name);
+      } else {
+        showToast('Invalid data format');
+      }
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      showToast('Failed to load file');
+      return;
+    }
+  }
+
+  /* Fallback: trigger file input */
+  document.querySelector('input[type="file"][accept=".json"]').click();
+}
+
+function updateFileIndicator(name) {
+  const el = document.getElementById('fileIndicator');
+  document.getElementById('fileName').textContent = name;
+  el.style.display = 'flex';
+}
+
+/* Auto-save to file handle whenever data changes (if handle is set) */
+const _origPersist = persist;
+persist = function() {
+  _origPersist();
+  if (fileHandle && 'showSaveFilePicker' in window) {
+    (async () => {
+      try {
+        const writable = await fileHandle.createWritable();
+        await writable.write(JSON.stringify(data, null, 2));
+        await writable.close();
+      } catch { /* silent — user may have revoked permission */ }
+    })();
+  }
+};
+
+/* ==================================================================
+   EXPORT / IMPORT (legacy buttons still work)
    ================================================================== */
 function exportData() {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -1394,6 +1711,7 @@ function importData(event) {
       if (imported.systems && imported.markets && imported.capabilities) {
         data = imported;
         persist();
+        rebuildMarketFilter();
         renderCurrentView();
         showToast('Data imported successfully');
       } else {
@@ -1422,6 +1740,12 @@ function updateAddButton() {
   if (currentView === 'integrations') {
     btn.textContent = '+ Add Integration';
     btn.onclick = openIntModal;
+  } else if (currentView === 'markets') {
+    btn.textContent = '+ Add Market';
+    btn.onclick = () => openMarketModal();
+  } else if (currentView === 'capabilities') {
+    btn.textContent = '+ Add Capability';
+    btn.onclick = () => openCapModal();
   } else {
     btn.textContent = '+ Add System';
     btn.onclick = () => openModal('system');
