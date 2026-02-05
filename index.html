@@ -975,17 +975,11 @@ try {
 function persist() { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
 function uid() { return '_' + Math.random().toString(36).slice(2, 10); }
 
-/* Flag image helper using flagcdn.com */
-/* Supported widths: 20, 40, 80, 160, 320, 640, 1280, 2560 */
+/* Flag image helper using flagcdn.com SVG (scales perfectly at any size) */
 function flagImg(isoCode, size = 'sm') {
   if (!isoCode) return '';
   const code = isoCode.toLowerCase();
-  const widths = { sm: 20, md: 40, lg: 80 };
-  const w = widths[size] || 20;
-  const w2x = w * 2; /* for retina: 40, 80, 160 */
-  return `<img src="https://flagcdn.com/w${w}/${code}.png"
-    srcset="https://flagcdn.com/w${w2x}/${code}.png 2x"
-    class="flag-img ${size}" alt="${code.toUpperCase()}" loading="lazy">`;
+  return `<img src="https://flagcdn.com/${code}.svg" class="flag-img ${size}" alt="${code.toUpperCase()}" loading="lazy">`;
 }
 
 /* Get ISO code from market (handles old data with flag emoji) */
