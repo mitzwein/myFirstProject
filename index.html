@@ -366,6 +366,19 @@ input,select,textarea{font-family:var(--font);font-size:.9rem}
 .cap-item-actions{display:inline-flex;gap:4px;margin-left:6px;opacity:0;transition:opacity .15s}
 .cap-item:hover .cap-item-actions{opacity:1}
 .cap-domain-actions{display:flex;gap:6px;margin-left:auto}
+.color-swatch{
+  display:inline-block;width:28px;height:28px;border-radius:6px;
+  border:2px solid transparent;transition:all .15s;cursor:pointer;
+}
+.color-swatch:hover{transform:scale(1.1)}
+input[type="radio"]:checked + .color-swatch{border-color:#fff;box-shadow:0 0 0 2px var(--accent)}
+.link-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.link-btn{
+  padding:5px 12px;border-radius:6px;font-size:.72rem;font-weight:600;
+  background:var(--bg-glass);border:1px solid var(--border);color:var(--accent2);
+  display:inline-flex;align-items:center;gap:4px;transition:all .15s;text-decoration:none;
+}
+.link-btn:hover{background:rgba(34,211,238,.1);border-color:var(--accent2)}
 .file-indicator{font-size:.72rem;color:var(--text-dim);display:flex;align-items:center;gap:4px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .file-indicator .dot{width:6px;height:6px;border-radius:50%;background:var(--success);flex-shrink:0}
 
@@ -698,6 +711,17 @@ input,select,textarea{font-family:var(--font);font-size:.9rem}
       </div>
     </div>
     <div class="form-group">
+      <label>Documentation Links</label>
+      <div class="form-row" style="margin-top:6px">
+        <input id="fConfluence" placeholder="Confluence URL">
+        <input id="fConnectIT" placeholder="ConnectIT URL">
+      </div>
+      <div class="form-row" style="margin-top:8px">
+        <input id="fYPA" placeholder="YPA URL">
+        <div></div>
+      </div>
+    </div>
+    <div class="form-group">
       <label>Markets</label>
       <div class="checkbox-group" id="fMarkets"></div>
     </div>
@@ -817,6 +841,35 @@ input,select,textarea{font-family:var(--font);font-size:.9rem}
   </div>
 </div>
 
+<!-- ============ DOMAIN MODAL ============ -->
+<div class="modal-overlay" id="domainModal">
+  <div class="modal">
+    <h2 id="domainModalTitle">Add Domain</h2>
+    <input type="hidden" id="editDomainOld">
+    <div class="form-group">
+      <label>Domain Name</label>
+      <input id="dName" placeholder="e.g. Finance, Human Resources">
+    </div>
+    <div class="form-group">
+      <label>Color</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="dColorPicker">
+        <label style="cursor:pointer"><input type="radio" name="dColor" value="#6366f1" checked style="display:none"><span class="color-swatch" style="background:#6366f1"></span></label>
+        <label style="cursor:pointer"><input type="radio" name="dColor" value="#22d3ee" style="display:none"><span class="color-swatch" style="background:#22d3ee"></span></label>
+        <label style="cursor:pointer"><input type="radio" name="dColor" value="#f59e0b" style="display:none"><span class="color-swatch" style="background:#f59e0b"></span></label>
+        <label style="cursor:pointer"><input type="radio" name="dColor" value="#f472b6" style="display:none"><span class="color-swatch" style="background:#f472b6"></span></label>
+        <label style="cursor:pointer"><input type="radio" name="dColor" value="#34d399" style="display:none"><span class="color-swatch" style="background:#34d399"></span></label>
+        <label style="cursor:pointer"><input type="radio" name="dColor" value="#a78bfa" style="display:none"><span class="color-swatch" style="background:#a78bfa"></span></label>
+        <label style="cursor:pointer"><input type="radio" name="dColor" value="#fb7185" style="display:none"><span class="color-swatch" style="background:#fb7185"></span></label>
+        <label style="cursor:pointer"><input type="radio" name="dColor" value="#38bdf8" style="display:none"><span class="color-swatch" style="background:#38bdf8"></span></label>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeDomainModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDomain()">Save Domain</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ DETAIL SIDE PANEL ============ -->
 <div class="detail-panel" id="detailPanel">
   <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:4px">
@@ -845,6 +898,14 @@ const DEFAULT_DATA = {
     { id: 'm6', name: 'India', region: 'Asia Pacific', flag: '\u{1F1EE}\u{1F1F3}' },
     { id: 'm7', name: 'France', region: 'Europe', flag: '\u{1F1EB}\u{1F1F7}' },
     { id: 'm8', name: 'Japan', region: 'Asia Pacific', flag: '\u{1F1EF}\u{1F1F5}' },
+  ],
+  domains: [
+    { name: 'Finance', color: '#6366f1' },
+    { name: 'Sales & Distribution', color: '#22d3ee' },
+    { name: 'Supply Chain', color: '#f59e0b' },
+    { name: 'Human Resources', color: '#f472b6' },
+    { name: 'IT & Digital', color: '#34d399' },
+    { name: 'Marketing', color: '#a78bfa' },
   ],
   capabilities: [
     { id: 'c1',  name: 'Financial Accounting', domain: 'Finance', level: 1 },
@@ -1125,23 +1186,44 @@ function renderLandscape() {
    CAPABILITY MAP
    ================================================================== */
 function renderCapabilities() {
-  const domains = [...new Set(data.capabilities.map(c => c.domain))];
-  const domainColors = {
-    'Finance': '#6366f1', 'Sales & Distribution': '#22d3ee',
-    'Supply Chain': '#f59e0b', 'Human Resources': '#f472b6',
-    'IT & Digital': '#34d399', 'Marketing': '#a78bfa',
-  };
-  document.getElementById('capGrid').innerHTML = domains.map(domain => {
+  /* Ensure domains array exists for backward compat */
+  if (!data.domains) data.domains = [];
+
+  /* Get all unique domain names from capabilities */
+  const domainNames = [...new Set(data.capabilities.map(c => c.domain))];
+
+  /* Also include any domains from data.domains that have no capabilities yet */
+  data.domains.forEach(d => {
+    if (!domainNames.includes(d.name)) domainNames.push(d.name);
+  });
+
+  function getDomainColor(name) {
+    const d = data.domains.find(x => x.name === name);
+    if (d) return d.color;
+    /* Fallback colors */
+    const fallback = {
+      'Finance': '#6366f1', 'Sales & Distribution': '#22d3ee',
+      'Supply Chain': '#f59e0b', 'Human Resources': '#f472b6',
+      'IT & Digital': '#34d399', 'Marketing': '#a78bfa',
+    };
+    return fallback[name] || '#6366f1';
+  }
+
+  document.getElementById('capGrid').innerHTML = domainNames.map(domain => {
     const caps = data.capabilities.filter(c => c.domain === domain);
-    const color = domainColors[domain] || '#6366f1';
+    const color = getDomainColor(domain);
+    const escapedDomain = domain.replace(/'/g, "\\'");
     return `<div class="cap-domain">
       <div class="cap-domain-header">
         <div class="dot" style="background:${color}"></div>${domain}
         <div class="cap-domain-actions">
-          <button class="btn btn-sm" onclick="openCapModal('${domain}')">+ Add</button>
+          <button class="btn btn-sm" onclick="editDomain('${escapedDomain}')" style="padding:2px 8px;font-size:.7rem">Edit</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteDomain('${escapedDomain}')" style="padding:2px 8px;font-size:.7rem">Del</button>
+          <button class="btn btn-sm" onclick="openCapModal('${escapedDomain}')">+ Cap</button>
         </div>
       </div>
       <div class="cap-list">
+        ${caps.length === 0 ? '<span style="font-size:.78rem;color:var(--text-dim);padding:8px">No capabilities yet</span>' : ''}
         ${caps.map(cap => {
           const count = data.systems.filter(s => s.capabilities.includes(cap.id)).length;
           return `<div class="cap-item" onclick="showCapDetail('${cap.id}')">
@@ -1306,6 +1388,19 @@ function showSystemDetail(sysId) {
       return c ? `<span class="detail-tag">${c.name}</span>` : '';
     }).join('')}</div>
   </div>`;
+
+  /* Documentation Links */
+  const hasLinks = s.confluenceUrl || s.connectITUrl || s.ypaUrl;
+  if (hasLinks) {
+    html += `<div class="detail-section">
+      <h4>Documentation Links</h4>
+      <div class="link-row">
+        ${s.confluenceUrl ? `<a href="${s.confluenceUrl}" target="_blank" class="link-btn">Confluence</a>` : ''}
+        ${s.connectITUrl ? `<a href="${s.connectITUrl}" target="_blank" class="link-btn">ConnectIT</a>` : ''}
+        ${s.ypaUrl ? `<a href="${s.ypaUrl}" target="_blank" class="link-btn">YPA</a>` : ''}
+      </div>
+    </div>`;
+  }
 
   if (stakeholder !== 'management') {
     const ints = data.integrations.filter(i => i.sourceId === sysId || i.targetId === sysId);
@@ -1513,12 +1608,15 @@ function openModal(type, systemId) {
     document.getElementById('fOwner').value = s.owner;
     document.getElementById('fCost').value = s.costCenter;
     document.getElementById('fTech').value = s.techStack.join(', ');
+    document.getElementById('fConfluence').value = s.confluenceUrl || '';
+    document.getElementById('fConnectIT').value = s.connectITUrl || '';
+    document.getElementById('fYPA').value = s.ypaUrl || '';
     document.querySelectorAll('#fMarkets input').forEach(cb => { cb.checked = s.markets.includes(cb.value); });
     document.querySelectorAll('#fCaps input').forEach(cb => { cb.checked = s.capabilities.includes(cb.value); });
   } else {
     document.getElementById('modalTitle').textContent = 'Add System';
     document.getElementById('editSystemId').value = '';
-    ['fName','fVendor','fDesc','fOwner','fCost','fTech'].forEach(id => document.getElementById(id).value = '');
+    ['fName','fVendor','fDesc','fOwner','fCost','fTech','fConfluence','fConnectIT','fYPA'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('fType').selectedIndex = 0;
     document.getElementById('fStatus').value = 'active';
     document.getElementById('fCrit').value = '2';
@@ -1549,6 +1647,9 @@ function saveSystem() {
     techStack,
     markets,
     capabilities: caps,
+    confluenceUrl: document.getElementById('fConfluence').value.trim(),
+    connectITUrl: document.getElementById('fConnectIT').value.trim(),
+    ypaUrl: document.getElementById('fYPA').value.trim(),
   };
 
   const idx = data.systems.findIndex(s => s.id === id);
@@ -1828,6 +1929,94 @@ function deleteCap(capId) {
   showToast('Capability deleted');
 }
 
+/* ==================================================================
+   DOMAIN CRUD
+   ================================================================== */
+function openDomainModal(domainName) {
+  const modal = document.getElementById('domainModal');
+  if (domainName) {
+    document.getElementById('domainModalTitle').textContent = 'Edit Domain';
+    document.getElementById('editDomainOld').value = domainName;
+    document.getElementById('dName').value = domainName;
+    /* Find color */
+    const d = data.domains.find(x => x.name === domainName);
+    const color = d ? d.color : '#6366f1';
+    document.querySelectorAll('#dColorPicker input').forEach(r => { r.checked = r.value === color; });
+  } else {
+    document.getElementById('domainModalTitle').textContent = 'Add Domain';
+    document.getElementById('editDomainOld').value = '';
+    document.getElementById('dName').value = '';
+    document.querySelectorAll('#dColorPicker input')[0].checked = true;
+  }
+  modal.classList.add('open');
+}
+
+function closeDomainModal() { document.getElementById('domainModal').classList.remove('open'); }
+
+function saveDomain() {
+  const oldName = document.getElementById('editDomainOld').value;
+  const newName = document.getElementById('dName').value.trim() || 'Unnamed Domain';
+  const color = document.querySelector('#dColorPicker input:checked')?.value || '#6366f1';
+
+  if (!data.domains) data.domains = [];
+
+  if (oldName) {
+    /* Editing existing domain */
+    const idx = data.domains.findIndex(d => d.name === oldName);
+    if (idx >= 0) {
+      data.domains[idx] = { name: newName, color };
+    } else {
+      data.domains.push({ name: newName, color });
+    }
+    /* Update all capabilities referencing old name */
+    if (oldName !== newName) {
+      data.capabilities.forEach(c => {
+        if (c.domain === oldName) c.domain = newName;
+      });
+    }
+    showToast('Domain updated');
+  } else {
+    /* Adding new domain */
+    const exists = data.domains.find(d => d.name === newName);
+    if (exists) {
+      showToast('Domain already exists');
+      return;
+    }
+    data.domains.push({ name: newName, color });
+    showToast('Domain added');
+  }
+
+  persist();
+  closeDomainModal();
+  renderCurrentView();
+}
+
+function editDomain(domainName) { openDomainModal(domainName); }
+
+function deleteDomain(domainName) {
+  const capCount = data.capabilities.filter(c => c.domain === domainName).length;
+  const msg = capCount
+    ? `Delete domain "${domainName}"? This will also delete ${capCount} capability(ies) and remove them from all systems.`
+    : `Delete domain "${domainName}"?`;
+  if (!confirm(msg)) return;
+
+  /* Delete all capabilities in this domain */
+  const capIds = data.capabilities.filter(c => c.domain === domainName).map(c => c.id);
+  data.capabilities = data.capabilities.filter(c => c.domain !== domainName);
+  /* Remove from systems */
+  data.systems.forEach(s => {
+    s.capabilities = s.capabilities.filter(cid => !capIds.includes(cid));
+  });
+  /* Remove from domains array */
+  if (data.domains) {
+    data.domains = data.domains.filter(d => d.name !== domainName);
+  }
+
+  persist();
+  renderCurrentView();
+  showToast('Domain deleted');
+}
+
 /* Detail panel */
 function closeDetail() { document.getElementById('detailPanel').classList.remove('open'); }
 
@@ -1981,8 +2170,8 @@ function updateAddButton() {
     btn.textContent = '+ Add Market';
     btn.onclick = () => openMarketModal();
   } else if (currentView === 'capabilities') {
-    btn.textContent = '+ Add Capability';
-    btn.onclick = () => openCapModal();
+    btn.textContent = '+ Add Domain';
+    btn.onclick = () => openDomainModal();
   } else {
     btn.textContent = '+ Add System';
     btn.onclick = () => openModal('system');
