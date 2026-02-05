@@ -213,7 +213,10 @@ input,select,textarea{font-family:var(--font);font-size:.9rem}
   border-radius:var(--radius);padding:20px;
 }
 .market-card-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-.market-flag{font-size:1.4rem}
+.flag-img{border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.3);vertical-align:middle;object-fit:cover}
+.flag-img.sm{width:20px;height:15px}
+.flag-img.md{width:32px;height:24px}
+.flag-img.lg{width:48px;height:36px}
 .market-name{font-weight:600;font-size:.95rem}
 .market-region{font-size:.72rem;color:var(--text-dim)}
 .market-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px}
@@ -799,9 +802,15 @@ input[type="radio"]:checked + .color-swatch{border-color:#fff;box-shadow:0 0 0 2
         </select>
       </div>
     </div>
-    <div class="form-group">
-      <label>Flag Emoji</label>
-      <input id="mFlag" placeholder="e.g. paste flag emoji here">
+    <div class="form-row">
+      <div class="form-group">
+        <label>ISO Country Code (2-letter)</label>
+        <input id="mIsoCode" placeholder="e.g. de, us, gb" maxlength="2" style="text-transform:lowercase">
+      </div>
+      <div class="form-group">
+        <label>Flag Preview</label>
+        <div id="mFlagPreview" style="height:40px;display:flex;align-items:center"></div>
+      </div>
     </div>
     <div class="form-actions">
       <button class="btn" onclick="closeMarketModal()">Cancel</button>
@@ -890,14 +899,14 @@ const STORAGE_KEY = 'itLandscapeData';
 
 const DEFAULT_DATA = {
   markets: [
-    { id: 'm1', name: 'Germany', region: 'Europe', flag: '\u{1F1E9}\u{1F1EA}' },
-    { id: 'm2', name: 'United States', region: 'North America', flag: '\u{1F1FA}\u{1F1F8}' },
-    { id: 'm3', name: 'United Kingdom', region: 'Europe', flag: '\u{1F1EC}\u{1F1E7}' },
-    { id: 'm4', name: 'China', region: 'Asia Pacific', flag: '\u{1F1E8}\u{1F1F3}' },
-    { id: 'm5', name: 'Brazil', region: 'Latin America', flag: '\u{1F1E7}\u{1F1F7}' },
-    { id: 'm6', name: 'India', region: 'Asia Pacific', flag: '\u{1F1EE}\u{1F1F3}' },
-    { id: 'm7', name: 'France', region: 'Europe', flag: '\u{1F1EB}\u{1F1F7}' },
-    { id: 'm8', name: 'Japan', region: 'Asia Pacific', flag: '\u{1F1EF}\u{1F1F5}' },
+    { id: 'm1', name: 'Germany', region: 'Europe', isoCode: 'de' },
+    { id: 'm2', name: 'United States', region: 'North America', isoCode: 'us' },
+    { id: 'm3', name: 'United Kingdom', region: 'Europe', isoCode: 'gb' },
+    { id: 'm4', name: 'China', region: 'Asia Pacific', isoCode: 'cn' },
+    { id: 'm5', name: 'Brazil', region: 'Latin America', isoCode: 'br' },
+    { id: 'm6', name: 'India', region: 'Asia Pacific', isoCode: 'in' },
+    { id: 'm7', name: 'France', region: 'Europe', isoCode: 'fr' },
+    { id: 'm8', name: 'Japan', region: 'Asia Pacific', isoCode: 'jp' },
   ],
   domains: [
     { name: 'Finance', color: '#6366f1' },
@@ -965,6 +974,25 @@ try {
 
 function persist() { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
 function uid() { return '_' + Math.random().toString(36).slice(2, 10); }
+
+/* Flag image helper using flagcdn.com */
+function flagImg(isoCode, size = 'sm') {
+  if (!isoCode) return '';
+  const code = isoCode.toLowerCase();
+  const widths = { sm: 40, md: 64, lg: 96 };
+  const w = widths[size] || 40;
+  return `<img src="https://flagcdn.com/w${w}/${code}.png"
+    srcset="https://flagcdn.com/w${w*2}/${code}.png 2x"
+    class="flag-img ${size}" alt="${code.toUpperCase()}" loading="lazy">`;
+}
+
+/* Get ISO code from market (handles old data with flag emoji) */
+function getMarketIso(market) {
+  if (market.isoCode) return market.isoCode;
+  /* Fallback: try to get ISO from country name lookup */
+  const iso = COUNTRY_ISO[market.name.toLowerCase()];
+  return iso ? iso.toLowerCase() : '';
+}
 
 /* ==================================================================
    NAVIGATION
@@ -1102,8 +1130,9 @@ function renderDashboard() {
   document.getElementById('marketChart').innerHTML = data.markets.map(m => {
     const count = systems.filter(s => s.markets.includes(m.id)).length;
     const pct = (count / maxMkt) * 100;
+    const iso = getMarketIso(m);
     return `<div class="bar-row">
-      <div class="bar-label">${m.flag} ${m.name}</div>
+      <div class="bar-label">${flagImg(iso, 'sm')} ${m.name}</div>
       <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:linear-gradient(90deg,var(--accent),var(--accent2))">${count}</div></div>
     </div>`;
   }).join('');
@@ -1156,7 +1185,7 @@ function renderLandscape() {
   /* Header row */
   document.getElementById('matrixHead').innerHTML = `<tr>
     <th>System</th>
-    ${markets.map(m => `<th>${m.flag}<br>${m.name}</th>`).join('')}
+    ${markets.map(m => `<th>${flagImg(getMarketIso(m), 'sm')}<br>${m.name}</th>`).join('')}
     <th>Coverage</th>
   </tr>`;
 
@@ -1258,7 +1287,7 @@ function showCapDetail(capId) {
       <div class="detail-tags">
         ${[...new Set(systems.flatMap(s => s.markets))].map(mId => {
           const m = data.markets.find(x => x.id === mId);
-          return m ? `<span class="detail-tag">${m.flag} ${m.name}</span>` : '';
+          return m ? `<span class="detail-tag">${flagImg(getMarketIso(m), 'sm')} ${m.name}</span>` : '';
         }).join('')}
       </div>
     </div>`;
@@ -1273,9 +1302,10 @@ function renderMarkets() {
     const systems = data.systems.filter(s => s.markets.includes(m.id));
     const critical = systems.filter(s => s.criticality >= 3).length;
     const activeSys = systems.filter(s => s.status === 'active').length;
+    const iso = getMarketIso(m);
     return `<div class="market-card">
       <div class="market-card-header">
-        <span class="market-flag">${m.flag}</span>
+        ${flagImg(iso, 'lg')}
         <div><div class="market-name">${m.name}</div><div class="market-region">${m.region}</div></div>
       </div>
       <div class="market-stats">
@@ -1327,7 +1357,7 @@ function renderSystems() {
   const showCost = stakeholder !== 'management';
 
   document.getElementById('sysTableBody').innerHTML = systems.map(s => {
-    const mktNames = s.markets.map(mid => { const m = data.markets.find(x => x.id === mid); return m ? m.flag : ''; }).join(' ');
+    const mktFlags = s.markets.map(mid => { const m = data.markets.find(x => x.id === mid); return m ? flagImg(getMarketIso(m), 'sm') : ''; }).join(' ');
     const critDots = [1, 2, 3, 4].map(i => `<div class="crit-dot ${i <= s.criticality ? (s.criticality >= 4 ? 'high' : 'on') : ''}"></div>`).join('');
     return `<tr>
       <td><strong style="cursor:pointer" onclick="showSystemDetail('${s.id}')">${s.name}</strong><br><span style="font-size:.72rem;color:var(--text-dim)">${s.description.slice(0, 60)}</span></td>
@@ -1335,7 +1365,7 @@ function renderSystems() {
       <td>${s.type}</td>
       <td><span class="status-badge ${s.status}">${s.status}</span></td>
       <td><div class="criticality-indicator">${critDots}</div></td>
-      <td>${mktNames}</td>
+      <td>${mktFlags}</td>
       <td>${s.owner}</td>
       <td>
         <button class="btn btn-sm" onclick="editSystem('${s.id}')">Edit</button>
@@ -1378,7 +1408,7 @@ function showSystemDetail(sysId) {
     <h4>Markets</h4>
     <div class="detail-tags">${s.markets.map(mid => {
       const m = data.markets.find(x => x.id === mid);
-      return m ? `<span class="detail-tag">${m.flag} ${m.name}</span>` : '';
+      return m ? `<span class="detail-tag">${flagImg(getMarketIso(m), 'sm')} ${m.name}</span>` : '';
     }).join('')}</div>
   </div>
   <div class="detail-section">
@@ -1587,7 +1617,7 @@ function openModal(type, systemId) {
   const modal = document.getElementById('systemModal');
   /* Build market checkboxes */
   document.getElementById('fMarkets').innerHTML = data.markets.map(m =>
-    `<label><input type="checkbox" value="${m.id}"> ${m.flag} ${m.name}</label>`
+    `<label><input type="checkbox" value="${m.id}"> ${flagImg(getMarketIso(m), 'sm')} ${m.name}</label>`
   ).join('');
   /* Build capability checkboxes */
   document.getElementById('fCaps').innerHTML = data.capabilities.map(c =>
@@ -1761,17 +1791,13 @@ const REGION_MAP = {
   'VE':'Latin America','VN':'Asia Pacific','YE':'Middle East & Africa','ZM':'Middle East & Africa','ZW':'Middle East & Africa',
 };
 
-function isoToFlag(code) {
-  return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
-}
-
-function lookupCountryFlag(name) {
+function lookupCountryIso(name) {
   const key = name.trim().toLowerCase();
   const iso = COUNTRY_ISO[key];
-  if (iso) return isoToFlag(iso);
+  if (iso) return iso.toLowerCase();
   /* partial match */
   for (const [country, code] of Object.entries(COUNTRY_ISO)) {
-    if (country.startsWith(key) || key.startsWith(country)) return isoToFlag(code);
+    if (country.startsWith(key) || key.startsWith(country)) return code.toLowerCase();
   }
   return '';
 }
@@ -1788,10 +1814,21 @@ function lookupCountryRegion(name) {
 
 /* Wire auto-lookup to market name input */
 document.getElementById('mName').addEventListener('input', function() {
-  const flag = lookupCountryFlag(this.value);
-  if (flag) document.getElementById('mFlag').value = flag;
+  const iso = lookupCountryIso(this.value);
+  if (iso) {
+    document.getElementById('mIsoCode').value = iso;
+    document.getElementById('mFlagPreview').innerHTML = flagImg(iso, 'md');
+  }
   const region = lookupCountryRegion(this.value);
   if (region) document.getElementById('mRegion').value = region;
+});
+
+/* Wire ISO code input to update preview */
+document.getElementById('mIsoCode').addEventListener('input', function() {
+  const iso = this.value.trim().toLowerCase();
+  if (iso.length === 2) {
+    document.getElementById('mFlagPreview').innerHTML = flagImg(iso, 'md');
+  }
 });
 
 /* ==================================================================
@@ -1806,13 +1843,16 @@ function openMarketModal(marketId) {
     document.getElementById('editMarketId').value = m.id;
     document.getElementById('mName').value = m.name;
     document.getElementById('mRegion').value = m.region;
-    document.getElementById('mFlag').value = m.flag;
+    const iso = getMarketIso(m);
+    document.getElementById('mIsoCode').value = iso;
+    document.getElementById('mFlagPreview').innerHTML = iso ? flagImg(iso, 'md') : '';
   } else {
     document.getElementById('marketModalTitle').textContent = 'Add Market';
     document.getElementById('editMarketId').value = '';
     document.getElementById('mName').value = '';
     document.getElementById('mRegion').selectedIndex = 0;
-    document.getElementById('mFlag').value = '';
+    document.getElementById('mIsoCode').value = '';
+    document.getElementById('mFlagPreview').innerHTML = '';
   }
   modal.classList.add('open');
 }
@@ -1825,7 +1865,7 @@ function saveMarket() {
     id,
     name: document.getElementById('mName').value || 'Unnamed Market',
     region: document.getElementById('mRegion').value,
-    flag: document.getElementById('mFlag').value || '',
+    isoCode: document.getElementById('mIsoCode').value.trim().toLowerCase(),
   };
   const idx = data.markets.findIndex(m => m.id === id);
   if (idx >= 0) data.markets[idx] = market;
