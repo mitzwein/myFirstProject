@@ -213,10 +213,10 @@ input,select,textarea{font-family:var(--font);font-size:.9rem}
   border-radius:var(--radius);padding:20px;
 }
 .market-card-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-.flag-img{border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.3);vertical-align:middle;object-fit:cover}
-.flag-img.sm{width:20px;height:15px}
-.flag-img.md{width:32px;height:24px}
-.flag-img.lg{width:48px;height:36px}
+.flag-img{border-radius:2px;box-shadow:0 1px 2px rgba(0,0,0,.25);vertical-align:middle}
+.flag-img.sm{width:20px;height:auto}
+.flag-img.md{width:32px;height:auto}
+.flag-img.lg{width:48px;height:auto}
 .market-name{font-weight:600;font-size:.95rem}
 .market-region{font-size:.72rem;color:var(--text-dim)}
 .market-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px}
@@ -976,13 +976,15 @@ function persist() { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
 function uid() { return '_' + Math.random().toString(36).slice(2, 10); }
 
 /* Flag image helper using flagcdn.com */
+/* Supported widths: 20, 40, 80, 160, 320, 640, 1280, 2560 */
 function flagImg(isoCode, size = 'sm') {
   if (!isoCode) return '';
   const code = isoCode.toLowerCase();
-  const widths = { sm: 40, md: 64, lg: 96 };
-  const w = widths[size] || 40;
+  const widths = { sm: 20, md: 40, lg: 80 };
+  const w = widths[size] || 20;
+  const w2x = w * 2; /* for retina: 40, 80, 160 */
   return `<img src="https://flagcdn.com/w${w}/${code}.png"
-    srcset="https://flagcdn.com/w${w*2}/${code}.png 2x"
+    srcset="https://flagcdn.com/w${w2x}/${code}.png 2x"
     class="flag-img ${size}" alt="${code.toUpperCase()}" loading="lazy">`;
 }
 
