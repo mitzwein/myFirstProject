@@ -340,6 +340,20 @@ input,select,textarea{font-family:var(--font);font-size:.9rem}
 .checkbox-group label:has(input:checked){background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.35)}
 .checkbox-group input[type="checkbox"]{width:14px;height:14px;accent-color:var(--accent)}
 
+/* Market operations date table */
+.market-ops-table{width:100%;border-collapse:collapse;margin-top:8px}
+.market-ops-table th,.market-ops-table td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
+.market-ops-table th{font-size:.7rem;text-transform:uppercase;letter-spacing:.6px;color:var(--text-dim);background:var(--bg-glass)}
+.market-ops-table td{font-size:.8rem}
+.market-ops-table input[type="date"]{
+  width:130px;padding:6px 8px;border-radius:6px;
+  background:var(--bg-glass);border:1px solid var(--border);color:var(--text);
+  font-size:.78rem;
+}
+.market-ops-table input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(0.8)}
+.market-ops-table .flag-img{vertical-align:middle;margin-right:6px}
+.market-ops-empty{padding:16px;text-align:center;color:var(--text-dim);font-size:.82rem}
+
 /* Detail side-panel */
 .detail-panel{
   position:fixed;right:0;top:0;width:420px;height:100vh;
@@ -588,6 +602,13 @@ input[type="radio"]:checked + .color-swatch{border-color:#fff;box-shadow:0 0 0 2
           <button class="btn btn-sm btn-danger" onclick="clearAllMarkets()">Clear All</button>
         </div>
       </div>
+      <div class="card" style="margin-bottom:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h4 style="font-size:.85rem;font-weight:600;margin:0">Regions</h4>
+          <button class="btn btn-sm" onclick="openRegionModal()">+ Add Region</button>
+        </div>
+        <div class="detail-tags" id="regionsList"></div>
+      </div>
       <div class="market-grid" id="marketGrid"></div>
     </div>
 
@@ -735,8 +756,15 @@ input[type="radio"]:checked + .color-swatch{border-color:#fff;box-shadow:0 0 0 2
       </div>
     </div>
     <div class="form-group">
-      <label>Markets</label>
-      <div class="checkbox-group" id="fMarkets"></div>
+      <label>Markets - Select &amp; Define Operations Period</label>
+      <div class="checkbox-group" id="fMarkets" style="margin-bottom:12px"></div>
+      <div id="fMarketOps">
+        <table class="market-ops-table" id="fMarketOpsTable">
+          <thead><tr><th>Market</th><th>Start of Operations</th><th>End of Operations</th></tr></thead>
+          <tbody id="fMarketOpsBody"></tbody>
+        </table>
+        <div class="market-ops-empty" id="fMarketOpsEmpty">Select markets above to define operations periods</div>
+      </div>
     </div>
     <div class="form-group">
       <label>Business Capabilities</label>
@@ -803,19 +831,13 @@ input[type="radio"]:checked + .color-swatch{border-color:#fff;box-shadow:0 0 0 2
       </div>
       <div class="form-group">
         <label>Region</label>
-        <select id="mRegion">
-          <option>Europe</option>
-          <option>North America</option>
-          <option>Latin America</option>
-          <option>Asia Pacific</option>
-          <option>Middle East & Africa</option>
-        </select>
+        <select id="mRegion"></select>
       </div>
     </div>
     <div class="form-row">
       <div class="form-group">
-        <label>ISO Country Code (2-letter)</label>
-        <input id="mIsoCode" placeholder="e.g. de, us, gb" maxlength="2" style="text-transform:lowercase">
+        <label>Country / Flag (ISO 3166-1)</label>
+        <select id="mIsoCode"></select>
       </div>
       <div class="form-group">
         <label>Flag Preview</label>
@@ -889,6 +911,22 @@ input[type="radio"]:checked + .color-swatch{border-color:#fff;box-shadow:0 0 0 2
   </div>
 </div>
 
+<!-- ============ REGION MODAL ============ -->
+<div class="modal-overlay" id="regionModal">
+  <div class="modal">
+    <h2 id="regionModalTitle">Add Region</h2>
+    <input type="hidden" id="editRegionId">
+    <div class="form-group">
+      <label>Region Name</label>
+      <input id="rName" placeholder="e.g. Europe, Asia Pacific">
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeRegionModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRegion()">Save Region</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ DETAIL SIDE PANEL ============ -->
 <div class="detail-panel" id="detailPanel">
   <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:4px">
@@ -908,6 +946,13 @@ input[type="radio"]:checked + .color-swatch{border-color:#fff;box-shadow:0 0 0 2
 const STORAGE_KEY = 'itLandscapeData';
 
 const DEFAULT_DATA = {
+  regions: [
+    { id: 'r1', name: 'Europe' },
+    { id: 'r2', name: 'North America' },
+    { id: 'r3', name: 'Latin America' },
+    { id: 'r4', name: 'Asia Pacific' },
+    { id: 'r5', name: 'Middle East & Africa' },
+  ],
   markets: [
     { id: 'm1', name: 'Germany', region: 'Europe', isoCode: 'de' },
     { id: 'm2', name: 'United States', region: 'North America', isoCode: 'us' },
@@ -982,6 +1027,11 @@ try {
   data = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_DATA));
 } catch { data = JSON.parse(JSON.stringify(DEFAULT_DATA)); }
 
+/* Ensure regions array exists (backward compatibility) */
+if (!data.regions) {
+  data.regions = DEFAULT_DATA.regions.slice();
+}
+
 function persist() { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
 function uid() { return '_' + Math.random().toString(36).slice(2, 10); }
 
@@ -998,6 +1048,27 @@ function getMarketIso(market) {
   /* Fallback: try to get ISO from country name lookup */
   const iso = COUNTRY_ISO[market.name.toLowerCase()];
   return iso ? iso.toLowerCase() : '';
+}
+
+/* Get market IDs from system (handles both old string[] and new object[] formats) */
+function getSystemMarketIds(system) {
+  if (!system.markets || !system.markets.length) return [];
+  return system.markets.map(m => typeof m === 'string' ? m : m.marketId);
+}
+
+/* Get market entry from system (returns object with dates or creates one) */
+function getSystemMarketEntry(system, marketId) {
+  if (!system.markets) return null;
+  for (const m of system.markets) {
+    if (typeof m === 'string' && m === marketId) return { marketId, startDate: '', endDate: '' };
+    if (typeof m === 'object' && m.marketId === marketId) return m;
+  }
+  return null;
+}
+
+/* Check if system has market */
+function systemHasMarket(system, marketId) {
+  return getSystemMarketIds(system).includes(marketId);
 }
 
 /* ==================================================================
@@ -1132,9 +1203,9 @@ function renderDashboard() {
     </div>`;
 
   /* Markets bar chart */
-  const maxMkt = Math.max(...data.markets.map(m => systems.filter(s => s.markets.includes(m.id)).length), 1);
+  const maxMkt = Math.max(...data.markets.map(m => systems.filter(s => systemHasMarket(s, m.id)).length), 1);
   document.getElementById('marketChart').innerHTML = data.markets.map(m => {
-    const count = systems.filter(s => s.markets.includes(m.id)).length;
+    const count = systems.filter(s => systemHasMarket(s, m.id)).length;
     const pct = (count / maxMkt) * 100;
     const iso = getMarketIso(m);
     return `<div class="bar-row">
@@ -1186,7 +1257,7 @@ function renderLandscape() {
   if (sortBy === 'name') systems.sort((a, b) => a.name.localeCompare(b.name));
   else if (sortBy === 'type') systems.sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name));
   else if (sortBy === 'criticality') systems.sort((a, b) => b.criticality - a.criticality || a.name.localeCompare(b.name));
-  else if (sortBy === 'coverage') systems.sort((a, b) => b.markets.length - a.markets.length || a.name.localeCompare(b.name));
+  else if (sortBy === 'coverage') systems.sort((a, b) => getSystemMarketIds(b).length - getSystemMarketIds(a).length || a.name.localeCompare(b.name));
 
   /* Header row */
   document.getElementById('matrixHead').innerHTML = `<tr>
@@ -1197,7 +1268,8 @@ function renderLandscape() {
 
   /* Body rows */
   document.getElementById('matrixBody').innerHTML = systems.map(s => {
-    const coverage = markets.length > 0 ? Math.round((s.markets.filter(mid => markets.some(m => m.id === mid)).length / markets.length) * 100) : 0;
+    const sysMarketIds = getSystemMarketIds(s);
+    const coverage = markets.length > 0 ? Math.round((sysMarketIds.filter(mid => markets.some(m => m.id === mid)).length / markets.length) * 100) : 0;
     const coverageColor = coverage >= 75 ? 'var(--success)' : coverage >= 40 ? 'var(--warn)' : 'var(--text-dim)';
     return `<tr>
       <td>
@@ -1205,10 +1277,12 @@ function renderLandscape() {
         <span class="matrix-sys-sub">${s.vendor} &middot; ${s.type}</span>
       </td>
       ${markets.map(m => {
-        const deployed = s.markets.includes(m.id);
+        const deployed = systemHasMarket(s, m.id);
         if (deployed) {
+          const entry = getSystemMarketEntry(s, m.id);
+          const dateInfo = entry?.startDate ? ` | Start: ${entry.startDate}` : '';
           const cls = s.status;
-          return `<td><div class="matrix-cell"><div class="matrix-dot ${cls}" title="${s.name} — ${m.name} (${s.status})" onclick="showSystemDetail('${s.id}')">&#10003;</div></div></td>`;
+          return `<td><div class="matrix-cell"><div class="matrix-dot ${cls}" title="${s.name} — ${m.name} (${s.status})${dateInfo}" onclick="showSystemDetail('${s.id}')">&#10003;</div></div></td>`;
         }
         return `<td><div class="matrix-cell"><div class="matrix-empty"></div></div></td>`;
       }).join('')}
@@ -1304,8 +1378,19 @@ function showCapDetail(capId) {
    MARKETS
    ================================================================== */
 function renderMarkets() {
+  /* Render regions section */
+  const regionsHtml = (data.regions || []).map(r => {
+    const marketCount = data.markets.filter(m => m.region === r.name).length;
+    return `<span class="detail-tag" style="cursor:pointer" onclick="openRegionModal('${r.id}')">
+      ${r.name} <span style="color:var(--text-dim)">(${marketCount})</span>
+      <button class="btn-icon" style="padding:2px 4px;margin-left:4px;font-size:.7rem" onclick="event.stopPropagation();deleteRegion('${r.id}')">&times;</button>
+    </span>`;
+  }).join('');
+  document.getElementById('regionsList').innerHTML = regionsHtml || '<span style="color:var(--text-dim)">No regions defined</span>';
+
+  /* Render market cards */
   document.getElementById('marketGrid').innerHTML = data.markets.map(m => {
-    const systems = data.systems.filter(s => s.markets.includes(m.id));
+    const systems = data.systems.filter(s => systemHasMarket(s, m.id));
     const critical = systems.filter(s => s.criticality >= 3).length;
     const activeSys = systems.filter(s => s.status === 'active').length;
     const iso = getMarketIso(m);
@@ -1343,7 +1428,7 @@ function renderSystems() {
   let systems = data.systems.filter(s => {
     if (search && !s.name.toLowerCase().includes(search) && !s.vendor.toLowerCase().includes(search)) return false;
     if (filterStatus && s.status !== filterStatus) return false;
-    if (filterMarket && !s.markets.includes(filterMarket)) return false;
+    if (filterMarket && !systemHasMarket(s, filterMarket)) return false;
     if (filterCrit && s.criticality !== parseInt(filterCrit)) return false;
     return true;
   });
@@ -1363,7 +1448,7 @@ function renderSystems() {
   const showCost = stakeholder !== 'management';
 
   document.getElementById('sysTableBody').innerHTML = systems.map(s => {
-    const mktFlags = s.markets.map(mid => { const m = data.markets.find(x => x.id === mid); return m ? flagImg(getMarketIso(m), 'sm') : ''; }).join(' ');
+    const mktFlags = getSystemMarketIds(s).map(mid => { const m = data.markets.find(x => x.id === mid); return m ? flagImg(getMarketIso(m), 'sm') : ''; }).join(' ');
     const critDots = [1, 2, 3, 4].map(i => `<div class="crit-dot ${i <= s.criticality ? (s.criticality >= 4 ? 'high' : 'on') : ''}"></div>`).join('');
     return `<tr>
       <td><strong style="cursor:pointer" onclick="showSystemDetail('${s.id}')">${s.name}</strong><br><span style="font-size:.72rem;color:var(--text-dim)">${s.description.slice(0, 60)}</span></td>
@@ -1410,11 +1495,17 @@ function showSystemDetail(sysId) {
     </div>`;
   }
 
+  const marketIds = getSystemMarketIds(s);
   html += `<div class="detail-section">
     <h4>Markets</h4>
-    <div class="detail-tags">${s.markets.map(mid => {
+    <div class="detail-tags">${marketIds.map(mid => {
       const m = data.markets.find(x => x.id === mid);
-      return m ? `<span class="detail-tag">${flagImg(getMarketIso(m), 'sm')} ${m.name}</span>` : '';
+      if (!m) return '';
+      const entry = getSystemMarketEntry(s, mid);
+      const dateRange = entry?.startDate || entry?.endDate
+        ? ` <span style="color:var(--text-dim);font-size:.7rem">(${entry.startDate || '?'} — ${entry.endDate || 'ongoing'})</span>`
+        : '';
+      return `<span class="detail-tag">${flagImg(getMarketIso(m), 'sm')} ${m.name}${dateRange}</span>`;
     }).join('')}</div>
   </div>
   <div class="detail-section">
@@ -1621,18 +1712,20 @@ function renderRadar() {
    ================================================================== */
 function openModal(type, systemId) {
   const modal = document.getElementById('systemModal');
+  const existingSystem = systemId ? data.systems.find(x => x.id === systemId) : null;
+
   /* Build market checkboxes */
   document.getElementById('fMarkets').innerHTML = data.markets.map(m =>
-    `<label><input type="checkbox" value="${m.id}"> ${flagImg(getMarketIso(m), 'sm')} ${m.name}</label>`
+    `<label><input type="checkbox" value="${m.id}" onchange="updateMarketOpsTable()"> ${flagImg(getMarketIso(m), 'sm')} ${m.name}</label>`
   ).join('');
+
   /* Build capability checkboxes */
   document.getElementById('fCaps').innerHTML = data.capabilities.map(c =>
     `<label><input type="checkbox" value="${c.id}"> ${c.name}</label>`
   ).join('');
 
-  if (systemId) {
-    const s = data.systems.find(x => x.id === systemId);
-    if (!s) return;
+  if (existingSystem) {
+    const s = existingSystem;
     document.getElementById('modalTitle').textContent = 'Edit System';
     document.getElementById('editSystemId').value = s.id;
     document.getElementById('fName').value = s.name;
@@ -1647,7 +1740,9 @@ function openModal(type, systemId) {
     document.getElementById('fConfluence').value = s.confluenceUrl || '';
     document.getElementById('fConnectIT').value = s.connectITUrl || '';
     document.getElementById('fYPA').value = s.ypaUrl || '';
-    document.querySelectorAll('#fMarkets input').forEach(cb => { cb.checked = s.markets.includes(cb.value); });
+    /* Check market checkboxes */
+    const marketIds = getSystemMarketIds(s);
+    document.querySelectorAll('#fMarkets input').forEach(cb => { cb.checked = marketIds.includes(cb.value); });
     document.querySelectorAll('#fCaps input').forEach(cb => { cb.checked = s.capabilities.includes(cb.value); });
   } else {
     document.getElementById('modalTitle').textContent = 'Add System';
@@ -1658,14 +1753,61 @@ function openModal(type, systemId) {
     document.getElementById('fCrit').value = '2';
     document.querySelectorAll('#fMarkets input, #fCaps input').forEach(cb => cb.checked = false);
   }
+
+  /* Build market operations table */
+  updateMarketOpsTable(existingSystem);
+
   modal.classList.add('open');
+}
+
+/* Update market operations table based on selected markets */
+function updateMarketOpsTable(existingSystem) {
+  const tbody = document.getElementById('fMarketOpsBody');
+  const emptyMsg = document.getElementById('fMarketOpsEmpty');
+  const table = document.getElementById('fMarketOpsTable');
+  const selectedMarkets = [...document.querySelectorAll('#fMarkets input:checked')].map(cb => cb.value);
+
+  if (selectedMarkets.length === 0) {
+    tbody.innerHTML = '';
+    table.style.display = 'none';
+    emptyMsg.style.display = 'block';
+    return;
+  }
+
+  table.style.display = 'table';
+  emptyMsg.style.display = 'none';
+
+  /* Get existing system for date values */
+  const sysId = document.getElementById('editSystemId').value;
+  const sys = existingSystem || (sysId ? data.systems.find(s => s.id === sysId) : null);
+
+  tbody.innerHTML = selectedMarkets.map(mId => {
+    const market = data.markets.find(m => m.id === mId);
+    if (!market) return '';
+    const entry = sys ? getSystemMarketEntry(sys, mId) : null;
+    const startDate = entry?.startDate || '';
+    const endDate = entry?.endDate || '';
+    return `<tr data-market-id="${mId}">
+      <td>${flagImg(getMarketIso(market), 'sm')} ${market.name}</td>
+      <td><input type="date" class="market-start-date" value="${startDate}"></td>
+      <td><input type="date" class="market-end-date" value="${endDate}"></td>
+    </tr>`;
+  }).join('');
 }
 
 function closeModal() { document.getElementById('systemModal').classList.remove('open'); }
 
 function saveSystem() {
   const id = document.getElementById('editSystemId').value || uid();
-  const markets = [...document.querySelectorAll('#fMarkets input:checked')].map(cb => cb.value);
+
+  /* Collect markets with dates */
+  const marketRows = document.querySelectorAll('#fMarketOpsBody tr');
+  const markets = [...marketRows].map(row => ({
+    marketId: row.dataset.marketId,
+    startDate: row.querySelector('.market-start-date').value,
+    endDate: row.querySelector('.market-end-date').value,
+  }));
+
   const caps = [...document.querySelectorAll('#fCaps input:checked')].map(cb => cb.value);
   const techStr = document.getElementById('fTech').value;
   const techStack = techStr ? techStr.split(',').map(t => t.trim()).filter(Boolean) : [];
@@ -1738,36 +1880,67 @@ function saveIntegration() {
 }
 
 /* ==================================================================
-   COUNTRY FLAG AUTO-LOOKUP (ISO 3166-1 → flag emoji)
+   COUNTRY FLAG AUTO-LOOKUP (ISO 3166-1 alpha-2 complete list)
    ================================================================== */
-const COUNTRY_ISO = {
-  'afghanistan':'AF','albania':'AL','algeria':'DZ','andorra':'AD','angola':'AO',
-  'argentina':'AR','armenia':'AM','australia':'AU','austria':'AT','azerbaijan':'AZ',
-  'bahrain':'BH','bangladesh':'BD','belarus':'BY','belgium':'BE','bolivia':'BO',
-  'bosnia':'BA','brazil':'BR','brunei':'BN','bulgaria':'BG','cambodia':'KH',
-  'cameroon':'CM','canada':'CA','chile':'CL','china':'CN','colombia':'CO',
-  'costa rica':'CR','croatia':'HR','cuba':'CU','cyprus':'CY','czech republic':'CZ',
-  'czechia':'CZ','denmark':'DK','dominican republic':'DO','ecuador':'EC','egypt':'EG',
-  'el salvador':'SV','estonia':'EE','ethiopia':'ET','finland':'FI','france':'FR',
-  'georgia':'GE','germany':'DE','ghana':'GH','greece':'GR','guatemala':'GT',
-  'honduras':'HN','hong kong':'HK','hungary':'HU','iceland':'IS','india':'IN',
-  'indonesia':'ID','iran':'IR','iraq':'IQ','ireland':'IE','israel':'IL',
-  'italy':'IT','jamaica':'JM','japan':'JP','jordan':'JO','kazakhstan':'KZ',
-  'kenya':'KE','kuwait':'KW','latvia':'LV','lebanon':'LB','libya':'LY',
-  'liechtenstein':'LI','lithuania':'LT','luxembourg':'LU','malaysia':'MY','malta':'MT',
-  'mexico':'MX','moldova':'MD','monaco':'MC','mongolia':'MN','montenegro':'ME',
-  'morocco':'MA','mozambique':'MZ','myanmar':'MM','nepal':'NP','netherlands':'NL',
-  'new zealand':'NZ','nicaragua':'NI','nigeria':'NG','north korea':'KP','north macedonia':'MK',
-  'norway':'NO','oman':'OM','pakistan':'PK','panama':'PA','paraguay':'PY',
-  'peru':'PE','philippines':'PH','poland':'PL','portugal':'PT','qatar':'QA',
-  'romania':'RO','russia':'RU','saudi arabia':'SA','senegal':'SN','serbia':'RS',
-  'singapore':'SG','slovakia':'SK','slovenia':'SI','south africa':'ZA','south korea':'KR',
-  'spain':'ES','sri lanka':'LK','sweden':'SE','switzerland':'CH','taiwan':'TW',
-  'tanzania':'TZ','thailand':'TH','tunisia':'TN','turkey':'TR','turkiye':'TR',
-  'ukraine':'UA','united arab emirates':'AE','uae':'AE','united kingdom':'GB','uk':'GB',
-  'united states':'US','usa':'US','us':'US','uruguay':'UY','uzbekistan':'UZ',
-  'venezuela':'VE','vietnam':'VN','yemen':'YE','zambia':'ZM','zimbabwe':'ZW',
-};
+const ISO_COUNTRIES = [
+  {code:'AF',name:'Afghanistan'},{code:'AX',name:'Åland Islands'},{code:'AL',name:'Albania'},{code:'DZ',name:'Algeria'},
+  {code:'AS',name:'American Samoa'},{code:'AD',name:'Andorra'},{code:'AO',name:'Angola'},{code:'AI',name:'Anguilla'},
+  {code:'AQ',name:'Antarctica'},{code:'AG',name:'Antigua and Barbuda'},{code:'AR',name:'Argentina'},{code:'AM',name:'Armenia'},
+  {code:'AW',name:'Aruba'},{code:'AU',name:'Australia'},{code:'AT',name:'Austria'},{code:'AZ',name:'Azerbaijan'},
+  {code:'BS',name:'Bahamas'},{code:'BH',name:'Bahrain'},{code:'BD',name:'Bangladesh'},{code:'BB',name:'Barbados'},
+  {code:'BY',name:'Belarus'},{code:'BE',name:'Belgium'},{code:'BZ',name:'Belize'},{code:'BJ',name:'Benin'},
+  {code:'BM',name:'Bermuda'},{code:'BT',name:'Bhutan'},{code:'BO',name:'Bolivia'},{code:'BA',name:'Bosnia and Herzegovina'},
+  {code:'BW',name:'Botswana'},{code:'BR',name:'Brazil'},{code:'BN',name:'Brunei'},{code:'BG',name:'Bulgaria'},
+  {code:'BF',name:'Burkina Faso'},{code:'BI',name:'Burundi'},{code:'CV',name:'Cabo Verde'},{code:'KH',name:'Cambodia'},
+  {code:'CM',name:'Cameroon'},{code:'CA',name:'Canada'},{code:'KY',name:'Cayman Islands'},{code:'CF',name:'Central African Republic'},
+  {code:'TD',name:'Chad'},{code:'CL',name:'Chile'},{code:'CN',name:'China'},{code:'CO',name:'Colombia'},
+  {code:'KM',name:'Comoros'},{code:'CG',name:'Congo'},{code:'CD',name:'Congo (DRC)'},{code:'CR',name:'Costa Rica'},
+  {code:'CI',name:"Côte d'Ivoire"},{code:'HR',name:'Croatia'},{code:'CU',name:'Cuba'},{code:'CW',name:'Curaçao'},
+  {code:'CY',name:'Cyprus'},{code:'CZ',name:'Czechia'},{code:'DK',name:'Denmark'},{code:'DJ',name:'Djibouti'},
+  {code:'DM',name:'Dominica'},{code:'DO',name:'Dominican Republic'},{code:'EC',name:'Ecuador'},{code:'EG',name:'Egypt'},
+  {code:'SV',name:'El Salvador'},{code:'GQ',name:'Equatorial Guinea'},{code:'ER',name:'Eritrea'},{code:'EE',name:'Estonia'},
+  {code:'SZ',name:'Eswatini'},{code:'ET',name:'Ethiopia'},{code:'FJ',name:'Fiji'},{code:'FI',name:'Finland'},
+  {code:'FR',name:'France'},{code:'GA',name:'Gabon'},{code:'GM',name:'Gambia'},{code:'GE',name:'Georgia'},
+  {code:'DE',name:'Germany'},{code:'GH',name:'Ghana'},{code:'GI',name:'Gibraltar'},{code:'GR',name:'Greece'},
+  {code:'GL',name:'Greenland'},{code:'GD',name:'Grenada'},{code:'GU',name:'Guam'},{code:'GT',name:'Guatemala'},
+  {code:'GG',name:'Guernsey'},{code:'GN',name:'Guinea'},{code:'GW',name:'Guinea-Bissau'},{code:'GY',name:'Guyana'},
+  {code:'HT',name:'Haiti'},{code:'HN',name:'Honduras'},{code:'HK',name:'Hong Kong'},{code:'HU',name:'Hungary'},
+  {code:'IS',name:'Iceland'},{code:'IN',name:'India'},{code:'ID',name:'Indonesia'},{code:'IR',name:'Iran'},
+  {code:'IQ',name:'Iraq'},{code:'IE',name:'Ireland'},{code:'IM',name:'Isle of Man'},{code:'IL',name:'Israel'},
+  {code:'IT',name:'Italy'},{code:'JM',name:'Jamaica'},{code:'JP',name:'Japan'},{code:'JE',name:'Jersey'},
+  {code:'JO',name:'Jordan'},{code:'KZ',name:'Kazakhstan'},{code:'KE',name:'Kenya'},{code:'KI',name:'Kiribati'},
+  {code:'KP',name:'North Korea'},{code:'KR',name:'South Korea'},{code:'KW',name:'Kuwait'},{code:'KG',name:'Kyrgyzstan'},
+  {code:'LA',name:'Laos'},{code:'LV',name:'Latvia'},{code:'LB',name:'Lebanon'},{code:'LS',name:'Lesotho'},
+  {code:'LR',name:'Liberia'},{code:'LY',name:'Libya'},{code:'LI',name:'Liechtenstein'},{code:'LT',name:'Lithuania'},
+  {code:'LU',name:'Luxembourg'},{code:'MO',name:'Macao'},{code:'MG',name:'Madagascar'},{code:'MW',name:'Malawi'},
+  {code:'MY',name:'Malaysia'},{code:'MV',name:'Maldives'},{code:'ML',name:'Mali'},{code:'MT',name:'Malta'},
+  {code:'MH',name:'Marshall Islands'},{code:'MR',name:'Mauritania'},{code:'MU',name:'Mauritius'},{code:'MX',name:'Mexico'},
+  {code:'FM',name:'Micronesia'},{code:'MD',name:'Moldova'},{code:'MC',name:'Monaco'},{code:'MN',name:'Mongolia'},
+  {code:'ME',name:'Montenegro'},{code:'MA',name:'Morocco'},{code:'MZ',name:'Mozambique'},{code:'MM',name:'Myanmar'},
+  {code:'NA',name:'Namibia'},{code:'NR',name:'Nauru'},{code:'NP',name:'Nepal'},{code:'NL',name:'Netherlands'},
+  {code:'NZ',name:'New Zealand'},{code:'NI',name:'Nicaragua'},{code:'NE',name:'Niger'},{code:'NG',name:'Nigeria'},
+  {code:'MK',name:'North Macedonia'},{code:'NO',name:'Norway'},{code:'OM',name:'Oman'},{code:'PK',name:'Pakistan'},
+  {code:'PW',name:'Palau'},{code:'PS',name:'Palestine'},{code:'PA',name:'Panama'},{code:'PG',name:'Papua New Guinea'},
+  {code:'PY',name:'Paraguay'},{code:'PE',name:'Peru'},{code:'PH',name:'Philippines'},{code:'PL',name:'Poland'},
+  {code:'PT',name:'Portugal'},{code:'PR',name:'Puerto Rico'},{code:'QA',name:'Qatar'},{code:'RO',name:'Romania'},
+  {code:'RU',name:'Russia'},{code:'RW',name:'Rwanda'},{code:'WS',name:'Samoa'},{code:'SM',name:'San Marino'},
+  {code:'ST',name:'São Tomé and Príncipe'},{code:'SA',name:'Saudi Arabia'},{code:'SN',name:'Senegal'},{code:'RS',name:'Serbia'},
+  {code:'SC',name:'Seychelles'},{code:'SL',name:'Sierra Leone'},{code:'SG',name:'Singapore'},{code:'SK',name:'Slovakia'},
+  {code:'SI',name:'Slovenia'},{code:'SB',name:'Solomon Islands'},{code:'SO',name:'Somalia'},{code:'ZA',name:'South Africa'},
+  {code:'SS',name:'South Sudan'},{code:'ES',name:'Spain'},{code:'LK',name:'Sri Lanka'},{code:'SD',name:'Sudan'},
+  {code:'SR',name:'Suriname'},{code:'SE',name:'Sweden'},{code:'CH',name:'Switzerland'},{code:'SY',name:'Syria'},
+  {code:'TW',name:'Taiwan'},{code:'TJ',name:'Tajikistan'},{code:'TZ',name:'Tanzania'},{code:'TH',name:'Thailand'},
+  {code:'TL',name:'Timor-Leste'},{code:'TG',name:'Togo'},{code:'TO',name:'Tonga'},{code:'TT',name:'Trinidad and Tobago'},
+  {code:'TN',name:'Tunisia'},{code:'TR',name:'Turkey'},{code:'TM',name:'Turkmenistan'},{code:'TV',name:'Tuvalu'},
+  {code:'UG',name:'Uganda'},{code:'UA',name:'Ukraine'},{code:'AE',name:'United Arab Emirates'},{code:'GB',name:'United Kingdom'},
+  {code:'US',name:'United States'},{code:'UY',name:'Uruguay'},{code:'UZ',name:'Uzbekistan'},{code:'VU',name:'Vanuatu'},
+  {code:'VA',name:'Vatican City'},{code:'VE',name:'Venezuela'},{code:'VN',name:'Vietnam'},{code:'YE',name:'Yemen'},
+  {code:'ZM',name:'Zambia'},{code:'ZW',name:'Zimbabwe'}
+];
+
+/* Build lookup maps from ISO_COUNTRIES */
+const COUNTRY_ISO = Object.fromEntries(ISO_COUNTRIES.map(c => [c.name.toLowerCase(), c.code]));
+const ISO_TO_NAME = Object.fromEntries(ISO_COUNTRIES.map(c => [c.code.toLowerCase(), c.name]));
 
 const REGION_MAP = {
   'AF':'Asia Pacific','AL':'Europe','DZ':'Middle East & Africa','AD':'Europe','AO':'Middle East & Africa',
@@ -1802,8 +1975,8 @@ function lookupCountryIso(name) {
   const iso = COUNTRY_ISO[key];
   if (iso) return iso.toLowerCase();
   /* partial match */
-  for (const [country, code] of Object.entries(COUNTRY_ISO)) {
-    if (country.startsWith(key) || key.startsWith(country)) return code.toLowerCase();
+  for (const c of ISO_COUNTRIES) {
+    if (c.name.toLowerCase().startsWith(key) || key.startsWith(c.name.toLowerCase())) return c.code.toLowerCase();
   }
   return '';
 }
@@ -1818,6 +1991,22 @@ function lookupCountryRegion(name) {
   return '';
 }
 
+/* Populate ISO country dropdown */
+function populateIsoDropdown(selectId, selectedIso) {
+  const sel = document.getElementById(selectId);
+  sel.innerHTML = '<option value="">-- Select Country --</option>' +
+    ISO_COUNTRIES.map(c => `<option value="${c.code.toLowerCase()}">${c.code} - ${c.name}</option>`).join('');
+  if (selectedIso) sel.value = selectedIso.toLowerCase();
+}
+
+/* Populate region dropdown from data.regions */
+function populateRegionDropdown(selectId, selectedRegion) {
+  const sel = document.getElementById(selectId);
+  const regions = data.regions || [];
+  sel.innerHTML = regions.map(r => `<option value="${r.name}">${r.name}</option>`).join('');
+  if (selectedRegion) sel.value = selectedRegion;
+}
+
 /* Wire auto-lookup to market name input */
 document.getElementById('mName').addEventListener('input', function() {
   const iso = lookupCountryIso(this.value);
@@ -1829,35 +2018,94 @@ document.getElementById('mName').addEventListener('input', function() {
   if (region) document.getElementById('mRegion').value = region;
 });
 
-/* Wire ISO code input to update preview */
-document.getElementById('mIsoCode').addEventListener('input', function() {
+/* Wire ISO code dropdown to update preview */
+document.getElementById('mIsoCode').addEventListener('change', function() {
   const iso = this.value.trim().toLowerCase();
-  if (iso.length === 2) {
-    document.getElementById('mFlagPreview').innerHTML = flagImg(iso, 'md');
-  }
+  document.getElementById('mFlagPreview').innerHTML = iso ? flagImg(iso, 'md') : '';
+  /* Also auto-set region if known */
+  const region = REGION_MAP[iso.toUpperCase()];
+  if (region) document.getElementById('mRegion').value = region;
 });
+
+/* ==================================================================
+   REGION CRUD
+   ================================================================== */
+function openRegionModal(regionId) {
+  const modal = document.getElementById('regionModal');
+  if (regionId) {
+    const r = data.regions.find(x => x.id === regionId);
+    if (!r) return;
+    document.getElementById('regionModalTitle').textContent = 'Edit Region';
+    document.getElementById('editRegionId').value = r.id;
+    document.getElementById('rName').value = r.name;
+  } else {
+    document.getElementById('regionModalTitle').textContent = 'Add Region';
+    document.getElementById('editRegionId').value = '';
+    document.getElementById('rName').value = '';
+  }
+  modal.classList.add('open');
+}
+
+function closeRegionModal() { document.getElementById('regionModal').classList.remove('open'); }
+
+function saveRegion() {
+  const id = document.getElementById('editRegionId').value || uid();
+  const oldRegion = data.regions.find(r => r.id === id);
+  const oldName = oldRegion ? oldRegion.name : '';
+  const newName = document.getElementById('rName').value.trim() || 'Unnamed Region';
+  const region = { id, name: newName };
+  const idx = data.regions.findIndex(r => r.id === id);
+  if (idx >= 0) {
+    data.regions[idx] = region;
+    /* Update markets that referenced old region name */
+    if (oldName && oldName !== newName) {
+      data.markets.forEach(m => { if (m.region === oldName) m.region = newName; });
+    }
+  } else {
+    data.regions.push(region);
+  }
+  persist();
+  closeRegionModal();
+  renderCurrentView();
+  showToast(idx >= 0 ? 'Region updated' : 'Region added');
+}
+
+function deleteRegion(id) {
+  const r = data.regions.find(x => x.id === id);
+  if (!r) return;
+  const marketCount = data.markets.filter(m => m.region === r.name).length;
+  const msg = marketCount
+    ? `Delete "${r.name}"? ${marketCount} market(s) use this region. They will lose their region assignment.`
+    : `Delete "${r.name}"?`;
+  if (!confirm(msg)) return;
+  data.markets.forEach(m => { if (m.region === r.name) m.region = ''; });
+  data.regions = data.regions.filter(x => x.id !== id);
+  persist();
+  renderCurrentView();
+  showToast('Region deleted');
+}
 
 /* ==================================================================
    MARKET CRUD
    ================================================================== */
 function openMarketModal(marketId) {
   const modal = document.getElementById('marketModal');
+  populateIsoDropdown('mIsoCode', '');
+  populateRegionDropdown('mRegion', '');
   if (marketId) {
     const m = data.markets.find(x => x.id === marketId);
     if (!m) return;
     document.getElementById('marketModalTitle').textContent = 'Edit Market';
     document.getElementById('editMarketId').value = m.id;
     document.getElementById('mName').value = m.name;
-    document.getElementById('mRegion').value = m.region;
+    populateRegionDropdown('mRegion', m.region);
     const iso = getMarketIso(m);
-    document.getElementById('mIsoCode').value = iso;
+    populateIsoDropdown('mIsoCode', iso);
     document.getElementById('mFlagPreview').innerHTML = iso ? flagImg(iso, 'md') : '';
   } else {
     document.getElementById('marketModalTitle').textContent = 'Add Market';
     document.getElementById('editMarketId').value = '';
     document.getElementById('mName').value = '';
-    document.getElementById('mRegion').selectedIndex = 0;
-    document.getElementById('mIsoCode').value = '';
     document.getElementById('mFlagPreview').innerHTML = '';
   }
   modal.classList.add('open');
@@ -1887,13 +2135,18 @@ function editMarket(id) { openMarketModal(id); }
 
 function deleteMarket(id) {
   const m = data.markets.find(x => x.id === id);
-  const systemCount = data.systems.filter(s => s.markets.includes(id)).length;
+  const systemCount = data.systems.filter(s => systemHasMarket(s, id)).length;
   const msg = systemCount
     ? `Delete "${m.name}"? ${systemCount} system(s) reference this market. The market will be removed from those systems.`
     : `Delete "${m.name}"?`;
   if (!confirm(msg)) return;
   data.markets = data.markets.filter(x => x.id !== id);
-  data.systems.forEach(s => { s.markets = s.markets.filter(mid => mid !== id); });
+  data.systems.forEach(s => {
+    s.markets = s.markets.filter(m => {
+      const mid = typeof m === 'string' ? m : m.marketId;
+      return mid !== id;
+    });
+  });
   persist();
   rebuildMarketFilter();
   renderCurrentView();
