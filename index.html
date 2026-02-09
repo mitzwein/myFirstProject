@@ -774,6 +774,13 @@ input[type="radio"]:checked + .color-swatch{border-color:#fff;box-shadow:0 0 0 2
           <option value="deprecated">Deprecated</option>
         </select>
       </div>
+      <div class="form-group">
+        <label>Target Solution</label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 0">
+          <input type="checkbox" id="fTargetSolution" style="width:18px;height:18px;accent-color:var(--accent)">
+          <span style="font-size:.85rem;text-transform:none;letter-spacing:0">Mark as target solution</span>
+        </label>
+      </div>
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -1865,6 +1872,7 @@ function openModal(type, systemId) {
     document.getElementById('fConfluence').value = s.confluenceUrl || '';
     document.getElementById('fConnectIT').value = s.connectITUrl || '';
     document.getElementById('fYPA').value = s.ypaUrl || '';
+    document.getElementById('fTargetSolution').checked = s.targetSolution || false;
     /* Check market checkboxes */
     const marketIds = getSystemMarketIds(s);
     document.querySelectorAll('#fMarkets input').forEach(cb => { cb.checked = marketIds.includes(cb.value); });
@@ -1876,6 +1884,7 @@ function openModal(type, systemId) {
     document.getElementById('fType').selectedIndex = 0;
     document.getElementById('fStatus').value = 'active';
     document.getElementById('fCrit').value = '2';
+    document.getElementById('fTargetSolution').checked = false;
     document.querySelectorAll('#fMarkets input, #fCaps input').forEach(cb => cb.checked = false);
   }
 
@@ -1953,6 +1962,7 @@ function saveSystem() {
     confluenceUrl: document.getElementById('fConfluence').value.trim(),
     connectITUrl: document.getElementById('fConnectIT').value.trim(),
     ypaUrl: document.getElementById('fYPA').value.trim(),
+    targetSolution: document.getElementById('fTargetSolution').checked,
   };
 
   const idx = data.systems.findIndex(s => s.id === id);
