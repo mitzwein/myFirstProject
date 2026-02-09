@@ -572,13 +572,22 @@ input[type="radio"]:checked + .color-swatch{border-color:#fff;box-shadow:0 0 0 2
     <!-- ========== CAPABILITY MAP VIEW ========== -->
     <div class="view" id="view-capabilities">
       <div class="card" style="margin-bottom:18px">
-        <p style="font-size:.84rem;color:var(--text-dim)">Business capabilities mapped to IT systems. Click a capability to see details. Badge shows the number of supporting systems.</p>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <p style="font-size:.84rem;color:var(--text-dim);margin:0">Business capabilities mapped to IT systems. Click a capability to see details. Badge shows the number of supporting systems.</p>
+          <button class="btn btn-sm btn-danger" onclick="clearAllCapabilities()">Clear All</button>
+        </div>
       </div>
       <div class="cap-domain-grid" id="capGrid"></div>
     </div>
 
     <!-- ========== MARKETS VIEW ========== -->
     <div class="view" id="view-markets">
+      <div class="card" style="margin-bottom:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <p style="font-size:.84rem;color:var(--text-dim);margin:0">Markets where your IT systems are deployed. Click Edit to modify or Delete to remove.</p>
+          <button class="btn btn-sm btn-danger" onclick="clearAllMarkets()">Clear All</button>
+        </div>
+      </div>
       <div class="market-grid" id="marketGrid"></div>
     </div>
 
@@ -604,6 +613,7 @@ input[type="radio"]:checked + .color-swatch{border-color:#fff;box-shadow:0 0 0 2
             <option value="3">High</option>
             <option value="4">Critical</option>
           </select>
+          <button class="btn btn-sm btn-danger" onclick="clearAllSystems()" style="margin-left:auto">Clear All</button>
         </div>
         <div style="overflow-x:auto">
           <table class="data-table">
@@ -1888,6 +1898,46 @@ function deleteMarket(id) {
   rebuildMarketFilter();
   renderCurrentView();
   showToast('Market deleted');
+}
+
+function clearAllMarkets() {
+  if (data.markets.length === 0) {
+    showToast('No markets to clear');
+    return;
+  }
+  if (!confirm(`Delete ALL ${data.markets.length} market(s)? This will remove market references from all systems.`)) return;
+  data.markets = [];
+  data.systems.forEach(s => { s.markets = []; });
+  persist();
+  rebuildMarketFilter();
+  renderCurrentView();
+  showToast('All markets cleared');
+}
+
+function clearAllCapabilities() {
+  const allCaps = data.domains.flatMap(d => d.capabilities || []);
+  if (allCaps.length === 0) {
+    showToast('No capabilities to clear');
+    return;
+  }
+  if (!confirm(`Delete ALL ${allCaps.length} capability/ies? This will remove capability references from all systems.`)) return;
+  data.domains.forEach(d => { d.capabilities = []; });
+  data.systems.forEach(s => { s.capabilities = []; });
+  persist();
+  renderCurrentView();
+  showToast('All capabilities cleared');
+}
+
+function clearAllSystems() {
+  if (data.systems.length === 0) {
+    showToast('No systems to clear');
+    return;
+  }
+  if (!confirm(`Delete ALL ${data.systems.length} system(s)? This cannot be undone.`)) return;
+  data.systems = [];
+  persist();
+  renderCurrentView();
+  showToast('All systems cleared');
 }
 
 function rebuildMarketFilter() {
