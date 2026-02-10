@@ -396,8 +396,11 @@ input[type="radio"]:checked + .color-swatch{border-color:#fff;box-shadow:0 0 0 2
   display:inline-flex;align-items:center;gap:4px;transition:all .15s;text-decoration:none;
 }
 .link-btn:hover{background:rgba(34,211,238,.1);border-color:var(--accent2)}
-.file-indicator{font-size:.72rem;color:var(--text-dim);display:flex;align-items:center;gap:4px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.file-indicator .dot{width:6px;height:6px;border-radius:50%;background:var(--success);flex-shrink:0}
+.file-indicator{font-size:.72rem;color:var(--text-dim);display:flex;align-items:center;gap:6px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-indicator .dot{width:6px;height:6px;border-radius:50%;background:var(--success);flex-shrink:0;animation:pulse-dot 2s infinite}
+.file-indicator .autosave-badge{background:var(--success);color:#fff;font-size:.65rem;font-weight:600;padding:2px 6px;border-radius:3px;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;transition:all .2s}
+.file-indicator .autosave-badge.saving{background:var(--accent);transform:scale(1.05)}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
 
 /* ---- LANDSCAPE MATRIX ---- */
 .matrix-wrapper{overflow-x:auto;padding-bottom:8px}
@@ -538,7 +541,7 @@ input[type="radio"]:checked + .color-swatch{border-color:#fff;box-shadow:0 0 0 2
   <div class="topbar">
     <h1 id="viewTitle">Executive Dashboard</h1>
     <div class="topbar-actions">
-      <span class="file-indicator" id="fileIndicator" style="display:none"><span class="dot"></span><span id="fileName"></span></span>
+      <span class="file-indicator" id="fileIndicator" style="display:none"><span class="dot"></span><span id="fileName"></span><span class="autosave-badge">Auto Save</span></span>
       <button class="btn" onclick="saveToFile()">Save to File</button>
       <button class="btn" onclick="loadFromFile()">Load File</button>
       <button class="btn" onclick="exportData()">Export JSON</button>
@@ -2576,12 +2579,17 @@ const _origPersist = persist;
 persist = function() {
   _origPersist();
   if (fileHandle && 'showSaveFilePicker' in window) {
+    const badge = document.querySelector('.autosave-badge');
+    if (badge) badge.classList.add('saving');
     (async () => {
       try {
         const writable = await fileHandle.createWritable();
         await writable.write(JSON.stringify(data, null, 2));
         await writable.close();
       } catch { /* silent — user may have revoked permission */ }
+      finally {
+        setTimeout(() => { if (badge) badge.classList.remove('saving'); }, 300);
+      }
     })();
   }
 };
